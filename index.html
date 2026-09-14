@@ -14,167 +14,202 @@
         <link rel="stylesheet" href="./resources/qgis2web.css">
         
         <style>
-        html, body, #map {
+        html, body {
             width: 100%;
             height: 100%;
             padding: 0;
             margin: 0;
             background-color: #ffffff;
             overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
 
-        /* Reubicación de Controles de Zoom (+/-) */
+        #app-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        /* Mapa Principal */
+        #map {
+            flex: 1;
+            height: 100%;
+        }
+
+        /* Panel Lateral Derecho */
+        #sidebar {
+            width: 310px;
+            height: 100%;
+            background: #ffffff;
+            box-shadow: -2px 0 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            padding: 20px 16px;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1a252f;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Secciones dentro del Menú */
+        .menu-section {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .section-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Buscador ROL */
+        #rol-search-input {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        #rol-search-input:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+        }
+
+        #rol-search-results {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            max-height: 160px;
+            overflow-y: auto;
+            background: #ffffff;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            display: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        #rol-search-results li {
+            padding: 9px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            border-bottom: 1px solid #f1f3f5;
+            color: #212529;
+        }
+
+        #rol-search-results li:hover {
+            background-color: #e8f4fc;
+            color: #2980b9;
+            font-weight: 600;
+        }
+
+        /* Opciones de Mapa Base */
+        .base-layer-options {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .base-layer-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: #2c3e50;
+            cursor: pointer;
+        }
+
+        .base-layer-option input {
+            cursor: pointer;
+            accent-color: #3498db;
+        }
+
+        /* Simbología */
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: #2c3e50;
+        }
+
+        .legend-color-box {
+            width: 22px;
+            height: 14px;
+            border: 2px solid #2b8cbe;
+            background-color: transparent;
+            border-radius: 3px;
+        }
+
+        /* Coordenadas en tiempo real en la barra lateral */
+        #mouse-position {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            font-weight: bold;
+            color: #2c3e50;
+            background: #ffffff;
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid #ced4da;
+            word-break: break-all;
+        }
+
+        /* Créditos de Autoría (Esquina Inferior Izquierda) */
+        #author-card {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            z-index: 999;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px 14px;
+            border-radius: 6px;
+            border: 1px solid rgba(0,0,0,0.1);
+            font-size: 12px;
+            color: #2c3e50;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+            font-weight: 600;
+            backdrop-filter: blur(4px);
+        }
+
+        /* Ajuste de Controles de Zoom */
         .ol-zoom {
             top: 15px !important;
             left: 15px !important;
         }
-        .ol-control > * {
-            background-color: #ffffff!important;
-            color: #333333!important;
-            border-radius: 4px!important;
-        }
-        .ol-control {
-            background-color: rgba(255,255,255,0.8) !important;
-            padding: 3px !important;
-            border-radius: 6px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
-        }
 
-        /* Ajuste de Posición del Selector de Capas Base (LayerSwitcher) */
+        /* Ocultar LayerSwitcher nativo flotante */
         .layer-switcher {
-            top: 15px !important;
-            right: 15px !important;
+            display: none !important;
         }
 
-        /* Cajita de Búsqueda de ROL (Desplazada para no tapar el zoom) */
-        #rol-search-container {
-            position: absolute;
-            top: 15px;
-            left: 65px;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 8px 10px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
-            width: 240px;
-            border: 1px solid rgba(0,0,0,0.1);
-            backdrop-filter: blur(4px);
-        }
-        #rol-search-input {
-            width: 100%;
-            padding: 7px 10px;
-            border: 1px solid #dcdfe6;
-            border-radius: 5px;
-            box-sizing: border-box;
-            font-size: 13px;
-            outline: none;
-        }
-        #rol-search-input:focus {
-            border-color: #2b8cbe;
-        }
-        #rol-search-results {
-            list-style: none;
-            margin: 6px 0 0 0;
-            padding: 0;
-            max-height: 180px;
-            overflow-y: auto;
-            background: white;
-            border: 1px solid #e4e7ed;
-            border-radius: 5px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.08);
-            display: none;
-        }
-        #rol-search-results li {
-            padding: 8px 10px;
-            cursor: pointer;
-            font-size: 13px;
-            border-bottom: 1px solid #f2f6fc;
-            color: #303133;
-        }
-        #rol-search-results li:hover {
-            background-color: #f0f7ff;
-            color: #2b8cbe;
-            font-weight: 600;
-        }
-
-        /* Cajita de Leyenda de Simbología (Alineada debajo del LayerSwitcher) */
-        #legend-card {
-            position: absolute;
-            top: 65px;
-            right: 15px;
-            z-index: 999;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 10px 12px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
-            border: 1px solid rgba(0,0,0,0.1);
-            font-size: 12px;
-            backdrop-filter: blur(4px);
-        }
-        .legend-title {
-            font-weight: 700;
-            margin-bottom: 6px;
-            color: #2c3e50;
-            text-transform: uppercase;
-            font-size: 10px;
-            letter-spacing: 0.5px;
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: #606266;
-        }
-        .legend-color-box {
-            width: 18px;
-            height: 12px;
-            border: 2px solid #2b8cbe;
-            background-color: transparent;
-            border-radius: 2px;
-        }
-
-        /* Coordenadas en Tiempo Real (Esquina Inferior Izquierda) */
-        .custom-mouse-position {
-            position: absolute;
-            bottom: 15px;
-            left: 15px;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 6px 12px;
-            border-radius: 6px;
-            border: 1px solid rgba(0,0,0,0.1);
-            font-size: 12px;
-            font-family: 'Courier New', Courier, monospace;
-            color: #2c3e50;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            font-weight: 600;
-            backdrop-filter: blur(4px);
-        }
-
-        /* Créditos de Autoría (Esquina Inferior Derecha) */
-        #author-card {
-            position: absolute;
-            bottom: 15px;
-            right: 15px;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 6px 12px;
-            border-radius: 6px;
-            border: 1px solid rgba(0,0,0,0.1);
-            font-size: 11px;
-            color: #2c3e50;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            font-weight: 600;
-            backdrop-filter: blur(4px);
-        }
-
-        /* Pop-up flotante */
+        /* Pop-up flotante estilizado */
         .custom-ol-popup {
             position: absolute;
-            background-color: white;
+            background-color: #ffffff;
             box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-            padding: 14px;
+            padding: 14px 16px;
             border-radius: 8px;
             border: 1px solid #e4e7ed;
             bottom: 12px;
@@ -191,7 +226,7 @@
             pointer-events: none;
         }
         .custom-ol-popup:after {
-            border-top-color: white;
+            border-top-color: #ffffff;
             border-width: 10px;
             left: 48px;
             margin-left: -10px;
@@ -213,40 +248,67 @@
             cursor: pointer;
         }
         .custom-popup-closer:hover {
-            color: #f56c6c;
+            color: #e74c3c;
         }
         </style>
         <title>Visor WebGIS</title>
     </head>
     <body>
-        <div id="map">
-            <!-- Widget de Búsqueda -->
-            <div id="rol-search-container">
-                <input type="text" id="rol-search-input" placeholder="Buscar ROL y presionar Enter..." autocomplete="off">
-                <ul id="rol-search-results"></ul>
-            </div>
+        <div id="app-container">
+            <!-- Mapa Principal -->
+            <div id="map">
+                <!-- Créditos de Autoría (Esquina Inferior Izquierda) -->
+                <div id="author-card">
+                    Elaborado por: Felipe Ibacache, Geógrafo
+                </div>
 
-            <!-- Cajita de Leyenda de Simbología -->
-            <div id="legend-card">
-                <div class="legend-title">Simbología</div>
-                <div class="legend-item">
-                    <div class="legend-color-box"></div>
-                    <span>Límite Predial</span>
+                <!-- Ventana emergente (Popup) -->
+                <div id="custom-popup" class="custom-ol-popup">
+                    <span id="custom-popup-closer" class="custom-popup-closer">✖</span>
+                    <div id="custom-popup-content"></div>
                 </div>
             </div>
 
-            <!-- Coordenadas del mouse -->
-            <div id="mouse-position" class="custom-mouse-position"></div>
+            <!-- Menú Lateral Derecho -->
+            <div id="sidebar">
+                <div class="sidebar-header">Visor Predial</div>
 
-            <!-- Créditos Autor -->
-            <div id="author-card">
-                Elaborado por: Felipe Ibacache, Geógrafo
-            </div>
+                <!-- 1. Búsqueda por ROL -->
+                <div class="menu-section">
+                    <div class="section-title">Búsqueda por ROL</div>
+                    <input type="text" id="rol-search-input" placeholder="Buscar ROL y presionar Enter..." autocomplete="off">
+                    <ul id="rol-search-results"></ul>
+                </div>
 
-            <!-- Ventana emergente (Popup) -->
-            <div id="custom-popup" class="custom-ol-popup">
-                <span id="custom-popup-closer" class="custom-popup-closer">✖</span>
-                <div id="custom-popup-content"></div>
+                <!-- 2. Capas Base -->
+                <div class="menu-section">
+                    <div class="section-title">Mapa Base</div>
+                    <div class="base-layer-options">
+                        <label class="base-layer-option">
+                            <input type="radio" name="basemap" id="radio-osm" checked>
+                            <span>OpenStreetMap</span>
+                        </label>
+                        <label class="base-layer-option">
+                            <input type="radio" name="basemap" id="radio-google">
+                            <span>Google Satélite</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 3. Simbología -->
+                <div class="menu-section">
+                    <div class="section-title">Simbología</div>
+                    <div class="legend-item">
+                        <div class="legend-color-box"></div>
+                        <span>Límite Predial</span>
+                    </div>
+                </div>
+
+                <!-- 4. Coordenadas en Tiempo Real -->
+                <div class="menu-section">
+                    <div class="section-title">Coordenadas del Cursor</div>
+                    <div id="mouse-position">Mueva el cursor</div>
+                </div>
             </div>
         </div>
 
@@ -272,6 +334,26 @@
                     lyr_google_sat.setVisible(false);
                 }
 
+                // Control del Selector de Mapa Base con los botones Radio del Sidebar
+                var radioOsm = document.getElementById('radio-osm');
+                var radioGoogle = document.getElementById('radio-google');
+
+                if (radioOsm && radioGoogle) {
+                    radioOsm.addEventListener('change', function () {
+                        if (this.checked && typeof lyr_osm !== 'undefined' && typeof lyr_google_sat !== 'undefined') {
+                            lyr_osm.setVisible(true);
+                            lyr_google_sat.setVisible(false);
+                        }
+                    });
+
+                    radioGoogle.addEventListener('change', function () {
+                        if (this.checked && typeof lyr_osm !== 'undefined' && typeof lyr_google_sat !== 'undefined') {
+                            lyr_osm.setVisible(false);
+                            lyr_google_sat.setVisible(true);
+                        }
+                    });
+                }
+
                 // 2. Aplicar estilo de contorno azul fino sin relleno
                 if (typeof lyr_copiaparavisor_0 !== 'undefined') {
                     lyr_copiaparavisor_0.setStyle(new ol.style.Style({
@@ -283,24 +365,18 @@
                     }));
                 }
 
-                // 3. Leyenda / Control desplegable de Mapas Base (OSM y Google Satellite)
-                var layerSwitcher = new ol.control.LayerSwitcher({
-                    tipLabel: 'Cambiar Mapa Base'
-                });
-                map.addControl(layerSwitcher);
-
-                // 4. Control de Coordenadas dinámicas del cursor
+                // 3. Control de Coordenadas dinámicas del cursor en el Panel Lateral
                 var mousePositionControl = new ol.control.MousePosition({
                     coordinateFormat: function(coord) {
                         return ol.coordinate.format(coord, '{y}   {x}', 6);
                     },
                     projection: 'EPSG:4326',
                     target: document.getElementById('mouse-position'),
-                    undefinedHTML: 'Mueva el cursor'
+                    undefinedHTML: 'Mueva el cursor sobre el mapa'
                 });
                 map.addControl(mousePositionControl);
 
-                // 5. Crear Overlay independiente para el Pop-up
+                // 4. Crear Overlay independiente para el Pop-up
                 var popupContainer = document.getElementById('custom-popup');
                 var popupContent = document.getElementById('custom-popup-content');
                 var popupCloser = document.getElementById('custom-popup-closer');
@@ -317,7 +393,7 @@
                     return false;
                 };
 
-                // 6. Obtener propiedad ROL
+                // 5. Obtener propiedad ROL
                 function getRolFromFeature(feature) {
                     var props = feature.getProperties();
                     for (var key in props) {
@@ -328,7 +404,7 @@
                     return '';
                 }
 
-                // 7. Mostrar Pop-up con ROL y Coordenadas
+                // 6. Mostrar Pop-up con ROL y Coordenadas
                 function showCustomPopup(feature, clickCoord) {
                     var geom = feature.getGeometry();
                     if (!geom) return;
@@ -365,7 +441,7 @@
                     }
                 });
 
-                // 8. Búsqueda y Zoom por ROL desde GeoJSON
+                // 7. Búsqueda y Zoom por ROL desde GeoJSON
                 if (typeof json_copiaparavisor_0 !== 'undefined') {
                     var format = new ol.format.GeoJSON();
                     var parsedFeatures = format.readFeatures(json_copiaparavisor_0, {
@@ -447,7 +523,7 @@
                     });
 
                     document.addEventListener('click', function(e) {
-                        if (!document.getElementById('rol-search-container').contains(e.target)) {
+                        if (!document.getElementById('sidebar').contains(e.target)) {
                             resultsList.style.display = 'none';
                         }
                     });
