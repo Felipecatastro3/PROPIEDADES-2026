@@ -39,11 +39,11 @@ var lyr_copiaparavisor_0 = new ol.layer.Vector({
     opacity: 1,
     source: jsonSource_copiaparavisor_0,
     style: customCelesteStyle,
+    renderMode: 'image', // <-- AÑADIR ESTA LÍNEA (Optimiza el rendimiento visual)
     popuplayertitle: 'copiaparavisor',
     interactive: true,
     title: 'Predios'
 });
-
 lyr_copiaparavisor_0.setVisible(true);
 
 // 4. Lista final de capas
