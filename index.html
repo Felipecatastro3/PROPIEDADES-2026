@@ -154,7 +154,7 @@
             border-radius: 3px;
         }
 
-        /* Coordenadas en tiempo real encuadradas */
+        /* Coordenadas en tiempo real */
         .mouse-position-box {
             background: #ffffff;
             padding: 8px;
@@ -197,7 +197,7 @@
             padding: 14px 16px 12px 16px;
             border-radius: 8px;
             border: 1px solid #dcdfe6;
-            border-top: 4px solid #2b8cbe; /* Borde superior azul destacado */
+            border-top: 4px solid #2b8cbe;
             bottom: 15px;
             left: -50px;
             min-width: 210px;
@@ -224,7 +224,6 @@
             left: 48px;
             margin-left: -11px;
         }
-        /* Ícono de Ubicación (Pin) */
         .custom-popup-pin {
             position: absolute;
             top: 8px;
@@ -243,7 +242,6 @@
     <body>
         <div id="app-container">
             <div id="map">
-                <!-- Recuadro del Popup -->
                 <div id="custom-popup" class="custom-ol-popup">
                     <span id="custom-popup-pin" class="custom-popup-pin" title="Coordenadas prediales">📍</span>
                     <div id="custom-popup-content"></div>
@@ -340,7 +338,7 @@
                     });
                 }
 
-                // 2. Transparente sin relleno (0% visibilidad), habilita el clic en todo el polígono
+                // 2. Estilo: Sin relleno visible, sólo borde azul (habilita la captura del clic en el interior)
                 var targetLayer = null;
                 if (typeof lyr_copiaparavisor_0 !== 'undefined') {
                     targetLayer = lyr_copiaparavisor_0;
@@ -384,7 +382,6 @@
                 });
                 map.addOverlay(customOverlay);
 
-                // Al pulsar sobre el Pin de Ubicación se cierra el globo flotante
                 popupPin.onclick = function() {
                     customOverlay.setPosition(undefined);
                     return false;
@@ -400,7 +397,7 @@
                     return '';
                 }
 
-                // 5. Contenido Estructurado dentro del Recuadro Pop-up
+                // 5. Pop-up desplegado en el centroide exacto
                 function showCustomPopup(feature, clickCoord) {
                     var geom = feature.getGeometry();
                     if (!geom) return;
@@ -423,7 +420,7 @@
                     customOverlay.setPosition(displayCoord);
                 }
 
-                // Evento clic en cualquier parte del polígono
+                // Clic directo en cualquier parte del polígono
                 map.on('singleclick', function(evt) {
                     var found = false;
                     map.forEachFeatureAtPixel(evt.pixel, function(feature) {
@@ -437,7 +434,7 @@
                     }
                 });
 
-                // 6. Búsqueda por ROL con Zoom Centrado al Predio
+                // 6. BÚSQUEDA Y ZOOM DIRECTO AL CENTROIDE DEL PREDIO
                 if (typeof json_copiaparavisor_0 !== 'undefined') {
                     var format = new ol.format.GeoJSON();
                     var parsedFeatures = format.readFeatures(json_copiaparavisor_0, {
@@ -455,15 +452,21 @@
                         var geom = feature.getGeometry();
                         if (geom) {
                             var extent = geom.getExtent();
-                            
-                            // Ajuste considerando los 320px del menú lateral
-                            map.getView().fit(extent, {
-                                duration: 300,
-                                maxZoom: 18,
-                                padding: [80, 360, 80, 80]
+                            var center = ol.extent.getCenter(extent);
+                            var resolution = map.getView().getResolution();
+
+                            // Ajuste exacto de desplazamiento para colocar el predio en el centro visual (compensando el sidebar de 320px)
+                            var offsetX = 160 * resolution; 
+                            var targetCenter = [center[0] + offsetX, center[1]];
+
+                            // Animación directa al centro del predio con Zoom 18
+                            map.getView().animate({
+                                center: targetCenter,
+                                zoom: 18,
+                                duration: 400
                             });
 
-                            showCustomPopup(feature, null);
+                            showCustomPopup(feature, center);
                         }
                     }
 
