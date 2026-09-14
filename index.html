@@ -31,7 +31,6 @@
             position: relative;
         }
 
-        /* Mapa Principal */
         #map {
             flex: 1;
             height: 100%;
@@ -39,7 +38,7 @@
 
         /* Panel Lateral Derecho */
         #sidebar {
-            width: 310px;
+            width: 320px;
             height: 100%;
             background: #ffffff;
             box-shadow: -2px 0 12px rgba(0,0,0,0.15);
@@ -48,7 +47,7 @@
             flex-direction: column;
             box-sizing: border-box;
             padding: 20px 16px;
-            gap: 20px;
+            gap: 16px;
             overflow-y: auto;
         }
 
@@ -62,7 +61,6 @@
             letter-spacing: 0.5px;
         }
 
-        /* Secciones dentro del Menú */
         .menu-section {
             background: #f8f9fa;
             border: 1px solid #e9ecef;
@@ -70,7 +68,7 @@
             padding: 12px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
         }
 
         .section-title {
@@ -90,7 +88,6 @@
             box-sizing: border-box;
             font-size: 13px;
             outline: none;
-            transition: border-color 0.2s, box-shadow 0.2s;
         }
 
         #rol-search-input:focus {
@@ -125,7 +122,7 @@
             font-weight: 600;
         }
 
-        /* Opciones de Mapa Base */
+        /* Opciones Mapa Base y Simbología */
         .base-layer-options {
             display: flex;
             flex-direction: column;
@@ -141,12 +138,6 @@
             cursor: pointer;
         }
 
-        .base-layer-option input {
-            cursor: pointer;
-            accent-color: #3498db;
-        }
-
-        /* Simbología */
         .legend-item {
             display: flex;
             align-items: center;
@@ -163,20 +154,33 @@
             border-radius: 3px;
         }
 
-        /* Coordenadas en tiempo real en la barra lateral */
-        #mouse-position {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 12px;
-            font-weight: bold;
-            color: #2c3e50;
+        /* Coordenadas en tiempo real perfectamente encuadradas */
+        .mouse-position-box {
             background: #ffffff;
-            padding: 8px 10px;
+            padding: 8px;
             border-radius: 6px;
             border: 1px solid #ced4da;
-            word-break: break-all;
+            min-height: 38px;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        /* Créditos de Autoría (Esquina Inferior Izquierda) */
+        .mouse-position-box .ol-mouse-position {
+            font-family: 'Courier New', Courier, monospace !important;
+            font-size: 12px !important;
+            font-weight: bold !important;
+            color: #2c3e50 !important;
+            position: static !important;
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            text-align: center;
+            width: 100%;
+        }
+
+        /* Créditos de Autoría */
         #author-card {
             position: absolute;
             bottom: 15px;
@@ -193,18 +197,16 @@
             backdrop-filter: blur(4px);
         }
 
-        /* Ajuste de Controles de Zoom */
         .ol-zoom {
             top: 15px !important;
             left: 15px !important;
         }
 
-        /* Ocultar LayerSwitcher nativo flotante */
         .layer-switcher {
             display: none !important;
         }
 
-        /* Pop-up flotante estilizado */
+        /* Pop-up flotante */
         .custom-ol-popup {
             position: absolute;
             background-color: #ffffff;
@@ -255,21 +257,18 @@
     </head>
     <body>
         <div id="app-container">
-            <!-- Mapa Principal -->
             <div id="map">
-                <!-- Créditos de Autoría (Esquina Inferior Izquierda) -->
                 <div id="author-card">
                     Elaborado por: Felipe Ibacache, Geógrafo
                 </div>
 
-                <!-- Ventana emergente (Popup) -->
                 <div id="custom-popup" class="custom-ol-popup">
                     <span id="custom-popup-closer" class="custom-popup-closer">✖</span>
                     <div id="custom-popup-content"></div>
                 </div>
             </div>
 
-            <!-- Menú Lateral Derecho -->
+            <!-- Panel Lateral Derecho -->
             <div id="sidebar">
                 <div class="sidebar-header">Visor Predial</div>
 
@@ -304,10 +303,12 @@
                     </div>
                 </div>
 
-                <!-- 4. Coordenadas en Tiempo Real -->
+                <!-- 4. Coordenadas del Cursor (Cuadro contenedor propio) -->
                 <div class="menu-section">
                     <div class="section-title">Coordenadas del Cursor</div>
-                    <div id="mouse-position">Mueva el cursor</div>
+                    <div class="mouse-position-box">
+                        <div id="mouse-position-target"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -328,13 +329,12 @@
             window.addEventListener('load', function () {
                 if (typeof map === 'undefined') return;
 
-                // 1. Configurar OpenStreetMap como mapa base por defecto
+                // 1. Mapa base OSM por defecto
                 if (typeof lyr_osm !== 'undefined' && typeof lyr_google_sat !== 'undefined') {
                     lyr_osm.setVisible(true);
                     lyr_google_sat.setVisible(false);
                 }
 
-                // Control del Selector de Mapa Base con los botones Radio del Sidebar
                 var radioOsm = document.getElementById('radio-osm');
                 var radioGoogle = document.getElementById('radio-google');
 
@@ -354,7 +354,7 @@
                     });
                 }
 
-                // 2. Aplicar estilo de contorno azul fino sin relleno
+                // 2. Estilo de contorno azul fino sin relleno
                 if (typeof lyr_copiaparavisor_0 !== 'undefined') {
                     lyr_copiaparavisor_0.setStyle(new ol.style.Style({
                         fill: null,
@@ -365,18 +365,18 @@
                     }));
                 }
 
-                // 3. Control de Coordenadas dinámicas del cursor en el Panel Lateral
+                // 3. Coordenadas encuadradas
                 var mousePositionControl = new ol.control.MousePosition({
                     coordinateFormat: function(coord) {
                         return ol.coordinate.format(coord, '{y}   {x}', 6);
                     },
                     projection: 'EPSG:4326',
-                    target: document.getElementById('mouse-position'),
-                    undefinedHTML: 'Mueva el cursor sobre el mapa'
+                    target: document.getElementById('mouse-position-target'),
+                    undefinedHTML: 'Mueva el cursor'
                 });
                 map.addControl(mousePositionControl);
 
-                // 4. Crear Overlay independiente para el Pop-up
+                // 4. Popup Overlay
                 var popupContainer = document.getElementById('custom-popup');
                 var popupContent = document.getElementById('custom-popup-content');
                 var popupCloser = document.getElementById('custom-popup-closer');
@@ -393,7 +393,6 @@
                     return false;
                 };
 
-                // 5. Obtener propiedad ROL
                 function getRolFromFeature(feature) {
                     var props = feature.getProperties();
                     for (var key in props) {
@@ -404,7 +403,7 @@
                     return '';
                 }
 
-                // 6. Mostrar Pop-up con ROL y Coordenadas
+                // 5. Mostrar Pop-up al hacer clic o buscar
                 function showCustomPopup(feature, clickCoord) {
                     var geom = feature.getGeometry();
                     if (!geom) return;
@@ -427,7 +426,7 @@
                     customOverlay.setPosition(displayCoord);
                 }
 
-                // Clic directo sobre cualquier polígono
+                // Clic directo en un polígono para mostrar la info
                 map.on('singleclick', function(evt) {
                     var found = false;
                     map.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
@@ -441,7 +440,7 @@
                     }
                 });
 
-                // 7. Búsqueda y Zoom por ROL desde GeoJSON
+                // 6. Búsqueda y Zoom exclusivo a la propiedad
                 if (typeof json_copiaparavisor_0 !== 'undefined') {
                     var format = new ol.format.GeoJSON();
                     var parsedFeatures = format.readFeatures(json_copiaparavisor_0, {
@@ -458,10 +457,11 @@
 
                         var extent = feature.getGeometry().getExtent();
                         
+                        // Fit ajustado (maxZoom 20 para enfocar solo el predio)
                         map.getView().fit(extent, {
                             duration: 300,
-                            maxZoom: 18,
-                            padding: [80, 80, 80, 80]
+                            maxZoom: 20,
+                            padding: [40, 40, 40, 40]
                         });
 
                         showCustomPopup(feature);
