@@ -122,7 +122,7 @@
             font-weight: 600;
         }
 
-        /* Opciones Mapa Base y Simbología */
+        /* Capas Base y Simbología */
         .base-layer-options {
             display: flex;
             flex-direction: column;
@@ -154,7 +154,7 @@
             border-radius: 3px;
         }
 
-        /* Coordenadas en tiempo real encuadradas */
+        /* Coordenadas en tiempo real */
         .mouse-position-box {
             background: #ffffff;
             padding: 8px;
@@ -199,7 +199,8 @@
             border: 1px solid #e4e7ed;
             bottom: 12px;
             left: -50px;
-            min-width: 190px;
+            min-width: 200px;
+            z-index: 2000;
         }
         .custom-ol-popup:after, .custom-ol-popup:before {
             top: 100%;
@@ -308,9 +309,6 @@
             window.addEventListener('load', function () {
                 if (typeof map === 'undefined') return;
 
-                // Desactivar eventos de sobrecarga nativos de qgis2web
-                map.un('pointermove', function() {});
-
                 setTimeout(function() {
                     map.updateSize();
                 }, 100);
@@ -340,11 +338,13 @@
                     });
                 }
 
-                // 2. SIN RELLENO + Renderizado Acelerado por Imagen
+                // 2. Relleno imperceptible (0.01 opacidad) que HABILITA el clic interior en todo el polígono
                 if (typeof lyr_copiaparavisor_0 !== 'undefined') {
-                    lyr_copiaparavisor_0.set('renderMode', 'image'); // Renderizado Ultra Rápido por GPU
+                    lyr_copiaparavisor_0.set('renderMode', 'image');
                     lyr_copiaparavisor_0.setStyle(new ol.style.Style({
-                        fill: null, // Sin relleno por completo
+                        fill: new ol.style.Fill({
+                            color: 'rgba(135, 206, 250, 0.01)'
+                        }),
                         stroke: new ol.style.Stroke({
                             color: '#2b8cbe',
                             width: 2
@@ -363,7 +363,7 @@
                 });
                 map.addControl(mousePositionControl);
 
-                // 4. Pop-up Overlay
+                // 4. Configuración del Pop-up Overlay
                 var popupContainer = document.getElementById('custom-popup');
                 var popupContent = document.getElementById('custom-popup-content');
                 var popupCloser = document.getElementById('custom-popup-closer');
@@ -371,7 +371,7 @@
                 var customOverlay = new ol.Overlay({
                     element: popupContainer,
                     autoPan: true,
-                    autoPanAnimation: { duration: 150 }
+                    autoPanAnimation: { duration: 250 }
                 });
                 map.addOverlay(customOverlay);
 
@@ -390,15 +390,18 @@
                     return '';
                 }
 
-                // 5. Mostrar Pop-up
+                // 5. Desplegar Emergente en el centroide real
                 function showCustomPopup(feature, clickCoord) {
                     var geom = feature.getGeometry();
                     if (!geom) return;
 
                     var displayCoord = clickCoord;
                     if (!displayCoord) {
-                        var extent = geom.getExtent();
-                        displayCoord = ol.extent.getCenter(extent);
+                        if (typeof geom.getInteriorPoint === 'function') {
+                            displayCoord = geom.getInteriorPoint().getCoordinates();
+                        } else {
+                            displayCoord = ol.extent.getCenter(geom.getExtent());
+                        }
                     }
 
                     var lonLat = ol.proj.toLonLat(displayCoord);
@@ -413,23 +416,21 @@
                     customOverlay.setPosition(displayCoord);
                 }
 
-                // Clic en el mapa (optimizado para detección de contornos)
+                // Evento de clic en cualquier parte interior del polígono
                 map.on('singleclick', function(evt) {
                     var found = false;
                     map.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
-                        if ((layer === lyr_copiaparavisor_0 || !layer) && !found) {
+                        if (!found && feature) {
                             showCustomPopup(feature, evt.coordinate);
                             found = true;
                         }
-                    }, {
-                        hitTolerance: 5 // Facilita el clic exactamente en las líneas de borde
                     });
                     if (!found) {
                         customOverlay.setPosition(undefined);
                     }
                 });
 
-                // 6. Búsqueda y Centrado Exacto
+                // 6. Búsqueda por ROL y Centrado Perfecto (Compensación de Panel Lateral)
                 if (typeof json_copiaparavisor_0 !== 'undefined') {
                     var format = new ol.format.GeoJSON();
                     var parsedFeatures = format.readFeatures(json_copiaparavisor_0, {
@@ -446,14 +447,15 @@
 
                         var extent = feature.getGeometry().getExtent();
                         
-                        // Centrado perfecto compensando el Sidebar
+                        // Centrado exacto: Reserva 360px a la derecha para no tapar el predio con el menú lateral
                         map.getView().fit(extent, {
-                            duration: 250,
+                            duration: 300,
                             maxZoom: 18,
-                            padding: [50, 360, 50, 50]
+                            padding: [60, 360, 60, 60]
                         });
 
-                        showCustomPopup(feature);
+                        // Desplegar información
+                        showCustomPopup(feature, null);
                     }
 
                     searchInput.addEventListener('input', function() {
