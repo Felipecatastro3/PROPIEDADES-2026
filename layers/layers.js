@@ -1,26 +1,54 @@
 var wms_layers = [];
 
+// 1. Capas Base
+var lyr_osm = new ol.layer.Tile({
+    'title': 'OpenStreetMap',
+    'type': 'base',
+    'opacity': 1.000000,
+    source: new ol.source.OSM()
+});
+
+var lyr_google_sat = new ol.layer.Tile({
+    'title': 'Google Satélite',
+    'type': 'base',
+    'opacity': 1.000000,
+    source: new ol.source.XYZ({
+        url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'
+    })
+});
+
+// 2. Estilo Celeste Transparente
+var customCelesteStyle = new ol.style.Style({
+    fill: new ol.style.Fill({
+        color: 'rgba(135, 206, 250, 0.45)'
+    }),
+    stroke: new ol.style.Stroke({
+        color: '#2b8cbe',
+        width: 1.5
+    })
+});
+
+// 3. Procesamiento Vectorial
 var format_copiaparavisor_0 = new ol.format.GeoJSON();
 var features_copiaparavisor_0 = format_copiaparavisor_0.readFeatures(json_copiaparavisor_0, 
-            {dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857'});
-var jsonSource_copiaparavisor_0 = new ol.source.Vector({
-    attributions: ' ',
-});
+    {dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857'});
+var jsonSource_copiaparavisor_0 = new ol.source.Vector({ atts: '' });
 jsonSource_copiaparavisor_0.addFeatures(features_copiaparavisor_0);
+
 var lyr_copiaparavisor_0 = new ol.layer.Vector({
-                declutter: false,
-                source:jsonSource_copiaparavisor_0, 
-                style: style_copiaparavisor_0,
-                popuplayertitle: 'copia para visor',
-                interactive: true,
-                title: '<img src="styles/legend/copiaparavisor_0.png" /> copia para visor'
-            });
+    opacity: 1,
+    source: jsonSource_copiaparavisor_0,
+    style: customCelesteStyle,
+    popuplayertitle: 'copiaparavisor',
+    interactive: true,
+    title: 'Predios'
+});
 
 lyr_copiaparavisor_0.setVisible(true);
-var layersList = [lyr_copiaparavisor_0];
-lyr_copiaparavisor_0.set('fieldAliases', {'ROL': 'ROL', });
-lyr_copiaparavisor_0.set('fieldImages', {'ROL': 'TextEdit', });
-lyr_copiaparavisor_0.set('fieldLabels', {'ROL': 'inline label - always visible', });
-lyr_copiaparavisor_0.on('precompose', function(evt) {
-    evt.context.globalCompositeOperation = 'normal';
-});
+
+// 4. Lista final de capas
+var layersList = [lyr_osm, lyr_google_sat, lyr_copiaparavisor_0];
+
+lyr_copiaparavisor_0.set('fieldAliases', {});
+lyr_copiaparavisor_0.set('fieldImages', {});
+lyr_copiaparavisor_0.set('fieldLabels', {});
