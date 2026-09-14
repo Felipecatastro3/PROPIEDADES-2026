@@ -130,7 +130,6 @@
         <script src="./resources/Autolinker.min.js"></script>
         <script src="./resources/qgis2web.js"></script>
 
-        <!-- INYECCIÓN DE FUNCIONES ADICIONALES -->
         <script type="text/javascript">
             window.addEventListener('load', function () {
                 if (typeof map === 'undefined') return;
@@ -185,7 +184,7 @@
                     });
                 });
 
-                // 4. Lógica de búsqueda por ROL (Animación fluida acelerada)
+                // 4. Lógica de búsqueda por ROL
                 var searchInput = document.getElementById('rol-search-input');
                 var resultsList = document.getElementById('rol-search-results');
                 
@@ -216,7 +215,6 @@
                                     resultsList.style.display = 'none';
                                     var featureExtent = feature.getGeometry().getExtent();
                                     
-                                    // Zoom rápido a 250ms en lugar de 1000ms
                                     map.getView().fit(featureExtent, { duration: 250, maxZoom: 19, padding: [80, 80, 80, 80] });
                                     showCustomPopup(feature);
                                 });
