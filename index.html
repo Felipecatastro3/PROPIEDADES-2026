@@ -150,7 +150,7 @@
             width: 22px;
             height: 14px;
             border: 2px solid #2b8cbe;
-            background-color: rgba(135, 206, 250, 0.7);
+            background-color: rgba(135, 206, 250, 0.25);
             border-radius: 3px;
         }
 
@@ -178,23 +178,6 @@
             margin: 0 !important;
             text-align: center;
             width: 100%;
-        }
-
-        /* Créditos de Autoría */
-        #author-card {
-            position: absolute;
-            bottom: 15px;
-            left: 15px;
-            z-index: 999;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 8px 14px;
-            border-radius: 6px;
-            border: 1px solid rgba(0,0,0,0.1);
-            font-size: 12px;
-            color: #2c3e50;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-            font-weight: 600;
-            backdrop-filter: blur(4px);
         }
 
         .ol-zoom {
@@ -258,10 +241,6 @@
     <body>
         <div id="app-container">
             <div id="map">
-                <div id="author-card">
-                    Elaborado por: Felipe Ibacache, Geógrafo
-                </div>
-
                 <div id="custom-popup" class="custom-ol-popup">
                     <span id="custom-popup-closer" class="custom-popup-closer">✖</span>
                     <div id="custom-popup-content"></div>
@@ -354,11 +333,11 @@
                     });
                 }
 
-                // 2. Estilo: Relleno Celeste con Alta Opacidad (70%) y borde azul
+                // 2. Estilo: Relleno Celeste Sutil (25% opacidad) para no tapar los mapas base
                 if (typeof lyr_copiaparavisor_0 !== 'undefined') {
                     lyr_copiaparavisor_0.setStyle(new ol.style.Style({
                         fill: new ol.style.Fill({
-                            color: 'rgba(135, 206, 250, 0.7)'
+                            color: 'rgba(135, 206, 250, 0.25)'
                         }),
                         stroke: new ol.style.Stroke({
                             color: '#2b8cbe',
