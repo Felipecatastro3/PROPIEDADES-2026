@@ -311,7 +311,7 @@
 
                 map.updateSize();
 
-                // 1. Capas Base
+                // 1. Selector de Capas Base
                 if (typeof lyr_osm !== 'undefined' && typeof lyr_google_sat !== 'undefined') {
                     lyr_osm.setVisible(true);
                     lyr_google_sat.setVisible(false);
@@ -336,7 +336,7 @@
                     });
                 }
 
-                // 2. Identificar la capa precargada de qgis2web y aplicar estilo transparente
+                // 2. Estilo sin relleno visible + captura de clic en interior
                 var targetLayer = null;
                 if (typeof lyr_copiaparavisor_0 !== 'undefined') {
                     targetLayer = lyr_copiaparavisor_0;
@@ -395,7 +395,7 @@
                     return '';
                 }
 
-                // 5. Pop-up desplegado exactamente en el centro geométrico de la propiedad
+                // 5. Mostrar Pop-up
                 function showCustomPopup(feature, clickCoord) {
                     var geom = feature.getGeometry();
                     if (!geom) return;
@@ -418,7 +418,7 @@
                     customOverlay.setPosition(displayCoord);
                 }
 
-                // Clic en polígono
+                // Clic en el mapa
                 map.on('singleclick', function(evt) {
                     var found = false;
                     map.forEachFeatureAtPixel(evt.pixel, function(feature) {
@@ -432,101 +432,100 @@
                     }
                 });
 
-                // 6. BÚSQUEDA Y ZOOM DIRECTO (Extrayendo directamente de la fuente de la capa viva)
-                var searchInput = document.getElementById('rol-search-input');
-                var resultsList = document.getElementById('rol-search-results');
-
-                function getSourceFeatures() {
-                    if (targetLayer && targetLayer.getSource()) {
-                        return targetLayer.getSource().getFeatures();
-                    }
-                    return [];
-                }
-
-                function executeSearchAndZoom(feature, rolVal) {
-                    searchInput.value = rolVal;
-                    resultsList.style.display = 'none';
-
-                    var geom = feature.getGeometry();
-                    if (geom) {
-                        map.updateSize();
-
-                        var extent = geom.getExtent();
-                        var center = ol.extent.getCenter(extent);
-
-                        // Encuadre nativo del predio con compensación para el menú derecho (350px)
-                        map.getView().fit(extent, {
-                            duration: 350,
-                            maxZoom: 18,
-                            padding: [60, 360, 60, 60]
-                        });
-
-                        showCustomPopup(feature, center);
-                    }
-                }
-
-                searchInput.addEventListener('input', function() {
-                    var query = searchInput.value.trim().toLowerCase();
-                    resultsList.innerHTML = '';
-
-                    if (query.length === 0) {
-                        resultsList.style.display = 'none';
-                        return;
-                    }
-
-                    var features = getSourceFeatures();
-                    var matches = features.filter(function(feature) {
-                        var rol = getRolFromFeature(feature).toLowerCase();
-                        return rol.includes(query);
+                // 6. Cargar entidades directamente del GeoJSON para la búsqueda garantizada
+                if (typeof json_copiaparavisor_0 !== 'undefined') {
+                    var geojsonFormat = new ol.format.GeoJSON();
+                    var searchFeatures = geojsonFormat.readFeatures(json_copiaparavisor_0, {
+                        dataProjection: 'EPSG:4326',
+                        featureProjection: 'EPSG:3857'
                     });
 
-                    if (matches.length > 0) {
-                        resultsList.style.display = 'block';
-                        matches.slice(0, 10).forEach(function(feature) {
-                            var rolVal = getRolFromFeature(feature);
-                            var li = document.createElement('li');
-                            li.textContent = 'ROL: ' + rolVal;
-                            li.addEventListener('click', function() {
-                                executeSearchAndZoom(feature, rolVal);
-                            });
-                            resultsList.appendChild(li);
-                        });
-                    } else {
-                        resultsList.style.display = 'block';
-                        var li = document.createElement('li');
-                        li.textContent = 'Sin resultados';
-                        li.style.color = '#909399';
-                        resultsList.appendChild(li);
-                    }
-                });
+                    var searchInput = document.getElementById('rol-search-input');
+                    var resultsList = document.getElementById('rol-search-results');
 
-                searchInput.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter') {
-                        var query = searchInput.value.trim().toLowerCase();
-                        if (query.length === 0) return;
-
-                        var features = getSourceFeatures();
-                        var match = features.find(function(feature) {
-                            return getRolFromFeature(feature).toLowerCase() === query;
-                        });
-
-                        if (!match) {
-                            match = features.find(function(feature) {
-                                return getRolFromFeature(feature).toLowerCase().includes(query);
-                            });
-                        }
-
-                        if (match) {
-                            executeSearchAndZoom(match, getRolFromFeature(match));
-                        }
-                    }
-                });
-
-                document.addEventListener('click', function(e) {
-                    if (!document.getElementById('sidebar').contains(e.target)) {
+                    function executeSearchAndZoom(feature, rolVal) {
+                        searchInput.value = rolVal;
                         resultsList.style.display = 'none';
+
+                        var geom = feature.getGeometry();
+                        if (geom) {
+                            map.updateSize();
+
+                            var extent = geom.getExtent();
+                            var center = ol.extent.getCenter(extent);
+
+                            // Zoom garantizado a la extensión de la propiedad con margen lateral
+                            map.getView().fit(extent, {
+                                duration: 350,
+                                maxZoom: 18,
+                                padding: [80, 360, 80, 80]
+                            });
+
+                            showCustomPopup(feature, center);
+                        }
                     }
-                });
+
+                    searchInput.addEventListener('input', function() {
+                        var query = searchInput.value.trim().toLowerCase();
+                        resultsList.innerHTML = '';
+
+                        if (query.length === 0) {
+                            resultsList.style.display = 'none';
+                            return;
+                        }
+
+                        var matches = searchFeatures.filter(function(feature) {
+                            var rol = getRolFromFeature(feature).toLowerCase();
+                            return rol.includes(query);
+                        });
+
+                        if (matches.length > 0) {
+                            resultsList.style.display = 'block';
+                            matches.slice(0, 10).forEach(function(feature) {
+                                var rolVal = getRolFromFeature(feature);
+                                var li = document.createElement('li');
+                                li.textContent = 'ROL: ' + rolVal;
+                                li.addEventListener('click', function() {
+                                    executeSearchAndZoom(feature, rolVal);
+                                });
+                                resultsList.appendChild(li);
+                            });
+                        } else {
+                            resultsList.style.display = 'block';
+                            var li = document.createElement('li');
+                            li.textContent = 'Sin resultados';
+                            li.style.color = '#909399';
+                            resultsList.appendChild(li);
+                        }
+                    });
+
+                    searchInput.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter') {
+                            var query = searchInput.value.trim().toLowerCase();
+                            if (query.length === 0) return;
+
+                            var match = searchFeatures.find(function(feature) {
+                                return getRolFromFeature(feature).toLowerCase() === query;
+                            });
+
+                            if (!match) {
+                                match = searchFeatures.find(function(feature) {
+                                    return getRolFromFeature(feature).toLowerCase().includes(query);
+                                });
+                            }
+
+                            if (match) {
+                                executeSearchAndZoom(match, getRolFromFeature(match));
+                            }
+                        }
+                    });
+
+                    document.addEventListener('click', function(e) {
+                        if (!document.getElementById('sidebar').contains(e.target)) {
+                            resultsList.style.display = 'none';
+                        }
+                    });
+                }
             });
         </script>
     </body>
