@@ -17,14 +17,12 @@ var lyr_google_sat = new ol.layer.Tile({
     })
 });
 
-// 2. Estilo Celeste Transparente
-var customCelesteStyle = new ol.style.Style({
-    fill: new ol.style.Fill({
-        color: 'rgba(135, 206, 250, 0.45)'
-    }),
+// 2. Estilo: Solo contorno (Sin relleno)
+var customOutlineStyle = new ol.style.Style({
+    fill: null, // Elimina el relleno por completo
     stroke: new ol.style.Stroke({
-        color: '#2b8cbe',
-        width: 1.5
+        color: '#2b8cbe', // Color celeste/azul para el borde
+        width: 1.8        // Grosor del borde
     })
 });
 
@@ -38,12 +36,13 @@ jsonSource_copiaparavisor_0.addFeatures(features_copiaparavisor_0);
 var lyr_copiaparavisor_0 = new ol.layer.Vector({
     opacity: 1,
     source: jsonSource_copiaparavisor_0,
-    style: customCelesteStyle,
-    renderMode: 'image', // <-- AÑADIR ESTA LÍNEA (Optimiza el rendimiento visual)
+    style: customOutlineStyle,
+    renderMode: 'image', // Mantiene la aceleración del mapa al mover/hacer zoom
     popuplayertitle: 'copiaparavisor',
     interactive: true,
     title: 'Predios'
 });
+
 lyr_copiaparavisor_0.setVisible(true);
 
 // 4. Lista final de capas
