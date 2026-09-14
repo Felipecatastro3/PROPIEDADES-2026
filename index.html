@@ -98,6 +98,50 @@
             color: #333;
             box-shadow: 0 1px 4px rgba(0,0,0,0.2);
         }
+
+        /* Pop-up Personalizado Autónomo */
+        .custom-ol-popup {
+            position: absolute;
+            background-color: white;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+            padding: 12px 15px;
+            border-radius: 6px;
+            border: 1px solid #cccccc;
+            bottom: 12px;
+            left: -50px;
+            min-width: 180px;
+        }
+        .custom-ol-popup:after, .custom-ol-popup:before {
+            top: 100%;
+            border: solid transparent;
+            content: " ";
+            height: 0;
+            width: 0;
+            position: absolute;
+            pointer-events: none;
+        }
+        .custom-ol-popup:after {
+            border-top-color: white;
+            border-width: 10px;
+            left: 48px;
+            margin-left: -10px;
+        }
+        .custom-ol-popup:before {
+            border-top-color: #cccccc;
+            border-width: 11px;
+            left: 48px;
+            margin-left: -11px;
+        }
+        .custom-popup-closer {
+            text-decoration: none;
+            position: absolute;
+            top: 4px;
+            right: 8px;
+            color: #888;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+        }
         </style>
         <title>Visor WebGIS</title>
     </head>
@@ -112,9 +156,10 @@
             <!-- Coordenadas del cursor -->
             <div id="mouse-position" class="custom-mouse-position"></div>
 
-            <div id="popup" class="ol-popup">
-                <a href="#" id="popup-closer" class="ol-popup-closer"></a>
-                <div id="popup-content"></div>
+            <!-- Pop-up dedicado -->
+            <div id="custom-popup" class="custom-ol-popup">
+                <span id="custom-popup-closer" class="custom-popup-closer">✖</span>
+                <div id="custom-popup-content"></div>
             </div>
         </div>
 
@@ -131,7 +176,7 @@
         <script src="./resources/qgis2web.js"></script>
 
         <script type="text/javascript">
-            // Forzar estilo sin relleno (solo contornos)
+            // Forzar estilo sin relleno (solo bordes azules)
             if (typeof lyr_copiaparavisor_0 !== 'undefined') {
                 lyr_copiaparavisor_0.setStyle(new ol.style.Style({
                     fill: null,
@@ -145,7 +190,24 @@
             window.addEventListener('load', function () {
                 if (typeof map === 'undefined') return;
 
-                // 1. Coordenadas dinámicas con el cursor
+                // 1. Configurar Overlay Pop-up Autónomo
+                var popupContainer = document.getElementById('custom-popup');
+                var popupContent = document.getElementById('custom-popup-content');
+                var popupCloser = document.getElementById('custom-popup-closer');
+
+                var customOverlay = new ol.Overlay({
+                    element: popupContainer,
+                    autoPan: true,
+                    autoPanAnimation: { duration: 250 }
+                });
+                map.addOverlay(customOverlay);
+
+                popupCloser.onclick = function() {
+                    customOverlay.setPosition(undefined);
+                    return false;
+                };
+
+                // 2. Coordenadas dinámicas con el cursor
                 var mousePositionControl = new ol.control.MousePosition({
                     coordinateFormat: function(coord) {
                         return ol.coordinate.format(coord, '{y}   {x}', 6);
@@ -156,7 +218,7 @@
                 });
                 map.addControl(mousePositionControl);
 
-                // 2. Extraer valor de ROL
+                // 3. Obtener valor del campo ROL
                 function getRolValue(feature) {
                     var props = feature.getProperties();
                     for (var key in props) {
@@ -167,7 +229,7 @@
                     return 'N/A';
                 }
 
-                // 3. Mostrar Popup con ROL y Coordenadas
+                // 4. Función para desplegar Popup con ROL y Coordenadas
                 function showCustomPopup(feature) {
                     var extent = feature.getGeometry().getExtent();
                     var center = ol.extent.getCenter(extent);
@@ -176,45 +238,58 @@
                     var lon = lonLat[0].toFixed(6);
                     var rol = getRolValue(feature);
 
-                    var content = document.getElementById('popup-content');
-                    content.innerHTML = '<strong style="color:#0078d7; font-size:14px;">ROL: ' + rol + '</strong><br>' +
-                                        '<span style="font-size:12px; color:#444;">Coordenadas:</span><br>' +
-                                        '<code style="background:#f4f4f4; padding:2px 4px; border-radius:3px;">' + lat + '   ' + lon + '</code>';
+                    popupContent.innerHTML = '<strong style="color:#0078d7; font-size:14px;">ROL: ' + rol + '</strong><br>' +
+                                             '<span style="font-size:12px; color:#444;">Coordenadas:</span><br>' +
+                                             '<code style="background:#f4f4f4; padding:2px 4px; border-radius:3px;">' + lat + '   ' + lon + '</code>';
                     
-                    var overlays = map.getOverlays().getArray();
-                    if (overlays.length > 0) {
-                        overlays[0].setPosition(center);
+                    customOverlay.setPosition(center);
+                }
+
+                // Clic manual directo sobre un polígono
+                map.on('singleclick', function(evt) {
+                    var found = false;
+                    map.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
+                        if (layer === lyr_copiaparavisor_0 && !found) {
+                            showCustomPopup(feature);
+                            found = true;
+                        }
+                    });
+                    if (!found) {
+                        customOverlay.setPosition(undefined);
+                    }
+                });
+
+                // 5. Lógica de Búsqueda y Zoom por ROL
+                var searchInput = document.getElementById('rol-search-input');
+                var resultsList = document.getElementById('rol-search-results');
+
+                function executeSearchAndZoom(feature, rolVal) {
+                    searchInput.value = rolVal;
+                    resultsList.style.display = 'none';
+
+                    // Obtener la geometría y ajustar el Zoom
+                    var geometry = feature.getGeometry();
+                    if (geometry) {
+                        var featureExtent = geometry.getExtent();
+                        
+                        // Zoom inmediato a la propiedad
+                        map.getView().fit(featureExtent, { 
+                            duration: 300, 
+                            maxZoom: 18, 
+                            padding: [100, 100, 100, 100] 
+                        });
+
+                        // Mostrar popup en las coordenadas del centroide
+                        showCustomPopup(feature);
                     }
                 }
 
-                // Clic directo sobre una propiedad
-                map.on('singleclick', function(evt) {
-                    map.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
-                        if (layer === lyr_copiaparavisor_0) {
-                            showCustomPopup(feature);
-                        }
-                    });
-                });
-
-                // 4. Lógica de búsqueda por ROL (al seleccionar o presionar Enter)
-                var searchInput = document.getElementById('rol-search-input');
-                var resultsList = document.getElementById('rol-search-results');
-                
+                // Obtener entidades de la capa vectorial
                 if (typeof jsonSource_copiaparavisor_0 !== 'undefined') {
-                    var features = jsonSource_copiaparavisor_0.getFeatures();
-
-                    function executeSearchAndZoom(feature, rolVal) {
-                        searchInput.value = rolVal;
-                        resultsList.style.display = 'none';
-                        var featureExtent = feature.getGeometry().getExtent();
-                        
-                        // Hacer Zoom y abrir el Popup con las coordenadas
-                        map.getView().fit(featureExtent, { duration: 250, maxZoom: 19, padding: [80, 80, 80, 80] });
-                        showCustomPopup(feature);
-                    }
-
-                    // Sugerencias en tiempo real al escribir
+                    
+                    // Sugerencias dinámicas
                     searchInput.addEventListener('input', function() {
+                        var features = jsonSource_copiaparavisor_0.getFeatures();
                         var query = searchInput.value.trim().toLowerCase();
                         resultsList.innerHTML = '';
 
@@ -247,9 +322,10 @@
                         }
                     });
 
-                    // Evento al presionar ENTER
+                    // Evento al presionar la tecla ENTER
                     searchInput.addEventListener('keydown', function(e) {
                         if (e.key === 'Enter') {
+                            var features = jsonSource_copiaparavisor_0.getFeatures();
                             var query = searchInput.value.trim().toLowerCase();
                             if (query.length === 0) return;
 
@@ -269,6 +345,7 @@
                         }
                     });
 
+                    // Ocultar la lista al hacer clic fuera
                     document.addEventListener('click', function(e) {
                         if (!document.getElementById('rol-search-container').contains(e.target)) {
                             resultsList.style.display = 'none';
