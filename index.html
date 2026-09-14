@@ -395,7 +395,7 @@
                     return '';
                 }
 
-                // 5. Mostrar Pop-up
+                // 5. Mostrar Pop-up en el centroide exacto
                 function showCustomPopup(feature, clickCoord) {
                     var geom = feature.getGeometry();
                     if (!geom) return;
@@ -432,7 +432,7 @@
                     }
                 });
 
-                // 6. Cargar entidades directamente del GeoJSON para la búsqueda garantizada
+                // 6. ANIMACIÓN Y ZOOM DETALLADO AL BUSCAR
                 if (typeof json_copiaparavisor_0 !== 'undefined') {
                     var geojsonFormat = new ol.format.GeoJSON();
                     var searchFeatures = geojsonFormat.readFeatures(json_copiaparavisor_0, {
@@ -454,11 +454,18 @@
                             var extent = geom.getExtent();
                             var center = ol.extent.getCenter(extent);
 
-                            // Zoom garantizado a la extensión de la propiedad con margen lateral
-                            map.getView().fit(extent, {
-                                duration: 350,
-                                maxZoom: 18,
-                                padding: [80, 360, 80, 80]
+                            // Animación directa al centro con Zoom 20 (Aproximación Predial Detallada)
+                            // Se aplica desplazamiento horizontal para compensar el menú lateral de 320px
+                            map.getView().animate({
+                                center: center,
+                                zoom: 20,
+                                duration: 400
+                            }, function() {
+                                // Re-compensar centro visible
+                                map.getView().fit(extent, {
+                                    maxZoom: 20,
+                                    padding: [100, 380, 100, 100]
+                                });
                             });
 
                             showCustomPopup(feature, center);
