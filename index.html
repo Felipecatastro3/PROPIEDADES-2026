@@ -313,7 +313,7 @@
                     map.updateSize();
                 }, 100);
 
-                // 1. Mapas Base
+                // 1. Control de Mapas Base (OSM / Google Satélite)
                 if (typeof lyr_osm !== 'undefined' && typeof lyr_google_sat !== 'undefined') {
                     lyr_osm.setVisible(true);
                     lyr_google_sat.setVisible(false);
@@ -338,19 +338,37 @@
                     });
                 }
 
-                // 2. Relleno imperceptible (0.01 opacidad) que HABILITA el clic interior en todo el polígono
-                if (typeof lyr_copiaparavisor_0 !== 'undefined') {
-                    lyr_copiaparavisor_0.set('renderMode', 'image');
-                    lyr_copiaparavisor_0.setStyle(new ol.style.Style({
+                // 2. CREACIÓN DE FUENTE Y CAPA VECTORIAL INDEPENDIENTE (Asegura clic y zoom perfecto)
+                var vectorSource = new ol.source.Vector();
+                var customVectorLayer = new ol.layer.Vector({
+                    source: vectorSource,
+                    renderMode: 'image',
+                    style: new ol.style.Style({
                         fill: new ol.style.Fill({
-                            color: 'rgba(135, 206, 250, 0.01)'
+                            color: 'rgba(135, 206, 250, 0.05)' // Relleno imperceptible pero interactivo
                         }),
                         stroke: new ol.style.Stroke({
                             color: '#2b8cbe',
                             width: 2
                         })
-                    }));
+                    })
+                });
+
+                // Cargar datos GeoJSON a la nueva capa
+                if (typeof json_copiaparavisor_0 !== 'undefined') {
+                    var format = new ol.format.GeoJSON();
+                    var features = format.readFeatures(json_copiaparavisor_0, {
+                        dataProjection: 'EPSG:4326',
+                        featureProjection: 'EPSG:3857'
+                    });
+                    vectorSource.addFeatures(features);
                 }
+
+                // Ocultar capa original de QGIS y agregar la capa nueva interactiva
+                if (typeof lyr_copiaparavisor_0 !== 'undefined') {
+                    lyr_copiaparavisor_0.setVisible(false);
+                }
+                map.addLayer(customVectorLayer);
 
                 // 3. Coordenadas encuadradas
                 var mousePositionControl = new ol.control.MousePosition({
@@ -363,7 +381,7 @@
                 });
                 map.addControl(mousePositionControl);
 
-                // 4. Configuración del Pop-up Overlay
+                // 4. Pop-up Overlay
                 var popupContainer = document.getElementById('custom-popup');
                 var popupContent = document.getElementById('custom-popup-content');
                 var popupCloser = document.getElementById('custom-popup-closer');
@@ -390,18 +408,15 @@
                     return '';
                 }
 
-                // 5. Desplegar Emergente en el centroide real
+                // 5. Desplegar Emergente en las coordenadas correctas
                 function showCustomPopup(feature, clickCoord) {
                     var geom = feature.getGeometry();
                     if (!geom) return;
 
                     var displayCoord = clickCoord;
                     if (!displayCoord) {
-                        if (typeof geom.getInteriorPoint === 'function') {
-                            displayCoord = geom.getInteriorPoint().getCoordinates();
-                        } else {
-                            displayCoord = ol.extent.getCenter(geom.getExtent());
-                        }
+                        var extent = geom.getExtent();
+                        displayCoord = ol.extent.getCenter(extent);
                     }
 
                     var lonLat = ol.proj.toLonLat(displayCoord);
@@ -416,11 +431,11 @@
                     customOverlay.setPosition(displayCoord);
                 }
 
-                // Evento de clic en cualquier parte interior del polígono
+                // Evento Clic en el Mapa (Ahora funciona en todo el interior)
                 map.on('singleclick', function(evt) {
                     var found = false;
                     map.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
-                        if (!found && feature) {
+                        if (layer === customVectorLayer && !found) {
                             showCustomPopup(feature, evt.coordinate);
                             found = true;
                         }
@@ -430,95 +445,91 @@
                     }
                 });
 
-                // 6. Búsqueda por ROL y Centrado Perfecto (Compensación de Panel Lateral)
-                if (typeof json_copiaparavisor_0 !== 'undefined') {
-                    var format = new ol.format.GeoJSON();
-                    var parsedFeatures = format.readFeatures(json_copiaparavisor_0, {
-                        dataProjection: 'EPSG:4326',
-                        featureProjection: 'EPSG:3857'
-                    });
+                // 6. Buscador por ROL con Zoom y Centrado Garantizado
+                var searchInput = document.getElementById('rol-search-input');
+                var resultsList = document.getElementById('rol-search-results');
 
-                    var searchInput = document.getElementById('rol-search-input');
-                    var resultsList = document.getElementById('rol-search-results');
+                function executeSearchAndZoom(feature, rolVal) {
+                    searchInput.value = rolVal;
+                    resultsList.style.display = 'none';
 
-                    function executeSearchAndZoom(feature, rolVal) {
-                        searchInput.value = rolVal;
-                        resultsList.style.display = 'none';
-
-                        var extent = feature.getGeometry().getExtent();
+                    var geom = feature.getGeometry();
+                    if (geom) {
+                        var extent = geom.getExtent();
                         
-                        // Centrado exacto: Reserva 360px a la derecha para no tapar el predio con el menú lateral
+                        // Centra exactamente dejando libre la franja de 320px del menú
                         map.getView().fit(extent, {
-                            duration: 300,
+                            duration: 350,
                             maxZoom: 18,
                             padding: [60, 360, 60, 60]
                         });
 
-                        // Desplegar información
                         showCustomPopup(feature, null);
                     }
+                }
 
-                    searchInput.addEventListener('input', function() {
+                searchInput.addEventListener('input', function() {
+                    var query = searchInput.value.trim().toLowerCase();
+                    resultsList.innerHTML = '';
+
+                    if (query.length === 0) {
+                        resultsList.style.display = 'none';
+                        return;
+                    }
+
+                    var allFeatures = vectorSource.getFeatures();
+                    var matches = allFeatures.filter(function(feature) {
+                        var rol = getRolFromFeature(feature).toLowerCase();
+                        return rol.includes(query);
+                    });
+
+                    if (matches.length > 0) {
+                        resultsList.style.display = 'block';
+                        matches.slice(0, 10).forEach(function(feature) {
+                            var rolVal = getRolFromFeature(feature);
+                            var li = document.createElement('li');
+                            li.textContent = 'ROL: ' + rolVal;
+                            li.addEventListener('click', function() {
+                                executeSearchAndZoom(feature, rolVal);
+                            });
+                            resultsList.appendChild(li);
+                        });
+                    } else {
+                        resultsList.style.display = 'block';
+                        var li = document.createElement('li');
+                        li.textContent = 'Sin resultados';
+                        li.style.color = '#909399';
+                        resultsList.appendChild(li);
+                    }
+                });
+
+                searchInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
                         var query = searchInput.value.trim().toLowerCase();
-                        resultsList.innerHTML = '';
+                        if (query.length === 0) return;
 
-                        if (query.length === 0) {
-                            resultsList.style.display = 'none';
-                            return;
-                        }
-
-                        var matches = parsedFeatures.filter(function(feature) {
-                            var rol = getRolFromFeature(feature).toLowerCase();
-                            return rol.includes(query);
+                        var allFeatures = vectorSource.getFeatures();
+                        var match = allFeatures.find(function(feature) {
+                            return getRolFromFeature(feature).toLowerCase() === query;
                         });
 
-                        if (matches.length > 0) {
-                            resultsList.style.display = 'block';
-                            matches.slice(0, 10).forEach(function(feature) {
-                                var rolVal = getRolFromFeature(feature);
-                                var li = document.createElement('li');
-                                li.textContent = 'ROL: ' + rolVal;
-                                li.addEventListener('click', function() {
-                                    executeSearchAndZoom(feature, rolVal);
-                                });
-                                resultsList.appendChild(li);
+                        if (!match) {
+                            match = allFeatures.find(function(feature) {
+                                return getRolFromFeature(feature).toLowerCase().includes(query);
                             });
-                        } else {
-                            resultsList.style.display = 'block';
-                            var li = document.createElement('li');
-                            li.textContent = 'Sin resultados';
-                            li.style.color = '#909399';
-                            resultsList.appendChild(li);
                         }
-                    });
 
-                    searchInput.addEventListener('keydown', function(e) {
-                        if (e.key === 'Enter') {
-                            var query = searchInput.value.trim().toLowerCase();
-                            if (query.length === 0) return;
-
-                            var match = parsedFeatures.find(function(feature) {
-                                return getRolFromFeature(feature).toLowerCase() === query;
-                            });
-
-                            if (!match) {
-                                match = parsedFeatures.find(function(feature) {
-                                    return getRolFromFeature(feature).toLowerCase().includes(query);
-                                });
-                            }
-
-                            if (match) {
-                                executeSearchAndZoom(match, getRolFromFeature(match));
-                            }
+                        if (match) {
+                            executeSearchAndZoom(match, getRolFromFeature(match));
                         }
-                    });
+                    }
+                });
 
-                    document.addEventListener('click', function(e) {
-                        if (!document.getElementById('sidebar').contains(e.target)) {
-                            resultsList.style.display = 'none';
-                        }
-                    });
-                }
+                document.addEventListener('click', function(e) {
+                    if (!document.getElementById('sidebar').contains(e.target)) {
+                        resultsList.style.display = 'none';
+                    }
+                });
             });
         </script>
     </body>
