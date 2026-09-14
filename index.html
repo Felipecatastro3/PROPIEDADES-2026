@@ -7,7 +7,7 @@
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-capable" content="yes">
         
-        <!-- Recurso CSS de OpenLayers y Plugins de qgis2web -->
+        <!-- CSS de OpenLayers y Plugins -->
         <link rel="stylesheet" href="./resources/ol.css">
         <link rel="stylesheet" href="resources/fontawesome-all.min.css">
         <link href="resources/photon-geocoder-autocomplete.min.css" rel="stylesheet">
@@ -15,7 +15,6 @@
         <link rel="stylesheet" href="./resources/qgis2web.css">
         
         <style>
-        /* Ocupar el 100% de la pantalla sin barras de desplazamiento */
         html, body {
             width: 100%;
             height: 100%;
@@ -23,13 +22,13 @@
             margin: 0;
             background-color: #ffffff;
             overflow: hidden;
+            font-family: Arial, sans-serif;
         }
         #map {
             width: 100%;
             height: 100%;
         }
         
-        /* Estilos de controles de OpenLayers */
         .ol-control > * {
             background-color: #f8f8f8!important;
             color: #444444!important;
@@ -47,19 +46,71 @@
         .ol-control {
             background-color: rgba(255,255,255,.4) !important;
             padding: 2px !important;
-        } 
+        }
+
+        /* Estilos del Buscador de ROL */
+        #rol-search-container {
+            position: absolute;
+            top: 10px;
+            left: 50px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 6px;
+            border-radius: 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            width: 240px;
+        }
+        #rol-search-input {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            box-sizing: border-box;
+            font-size: 13px;
+            outline: none;
+        }
+        #rol-search-results {
+            list-style: none;
+            margin: 4px 0 0 0;
+            padding: 0;
+            max-height: 180px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            display: none;
+        }
+        #rol-search-results li {
+            padding: 8px 10px;
+            cursor: pointer;
+            font-size: 13px;
+            border-bottom: 1px solid #eee;
+        }
+        #rol-search-results li:last-child {
+            border-bottom: none;
+        }
+        #rol-search-results li:hover {
+            background-color: #f0f0f0;
+            color: #0078d7;
+        }
         </style>
         <title>Visor WebGIS</title>
     </head>
     <body>
         <div id="map">
+            <!-- Widget de Búsqueda de ROL -->
+            <div id="rol-search-container">
+                <input type="text" id="rol-search-input" placeholder="Buscar ROL..." autocomplete="off">
+                <ul id="rol-search-results"></ul>
+            </div>
+
             <div id="popup" class="ol-popup">
                 <a href="#" id="popup-closer" class="ol-popup-closer"></a>
                 <div id="popup-content"></div>
             </div>
         </div>
         
-        <!-- Scripts base del proyecto qgis2web -->
+        <!-- Scripts base de qgis2web -->
         <script src="resources/qgis2web_expressions.js"></script>
         <script src="./resources/functions.js"></script>
         <script src="./resources/ol.js"></script>
@@ -67,33 +118,33 @@
         <script src="resources/photon-geocoder-autocomplete.min.js"></script>
         <script src="resources/olms.js"></script>
         
-        <!-- Capa vectorial exportada desde QGIS -->
+        <!-- Capa vectorial de QGIS -->
         <script src="layers/copiaparavisor_0.js"></script>
         <script src="styles/copiaparavisor_0_style.js"></script>
         
-        <!-- Configuración de Capas Base e Integración -->
+        <!-- Configuración de Capas Base, Capa Vectorial e Integración -->
         <script type="text/javascript">
             var wms_layers = [];
 
-            // 1. Capa Base: OpenStreetMap
+            // 1. Capa Base: OpenStreetMap (Visible al inicio)
             var lyr_osm = new ol.layer.Tile({
                 'title': 'OpenStreetMap',
                 'type': 'base',
-                'opacity': 1.000000,
+                'visible': true,
                 source: new ol.source.OSM()
             });
 
-            // 2. Capa Base: Google Satellite
+            // 2. Capa Base: Google Satélite (Oculta al inicio para permitir intercambio)
             var lyr_google_sat = new ol.layer.Tile({
                 'title': 'Google Satélite',
                 'type': 'base',
-                'opacity': 1.000000,
+                'visible': false,
                 source: new ol.source.XYZ({
                     url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'
                 })
             });
 
-            // 3. Procesamiento de la capa vectorial de QGIS (copiaparavisor_0)
+            // 3. Procesamiento de la Capa Vectorial de QGIS (copiaparavisor_0)
             var format_copiaparavisor_0 = new ol.format.GeoJSON();
             var features_copiaparavisor_0 = format_copiaparavisor_0.readFeatures(json_copiaparavisor_0, 
                 {dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857'});
@@ -104,7 +155,7 @@
 
             var lyr_copiaparavisor_0 = new ol.layer.Vector({
                 opacity: 1,
-                vectorAsImage: true,
+                vectorAsImage: false,
                 source: jsonSource_copiaparavisor_0,
                 style: style_copiaparavisor_0,
                 popuplayertitle: 'copiaparavisor',
@@ -114,10 +165,10 @@
 
             lyr_copiaparavisor_0.setVisible(true);
 
-            // Lista de capas: Las capas marcadas como 'base' permitirán alternar entre sí
+            // Lista de capas del mapa
             var layersList = [lyr_osm, lyr_google_sat, lyr_copiaparavisor_0];
 
-            // Configuración de los atributos para la ventana emergente (Popups)
+            // Configuración de los atributos para las ventanas emergentes (Popups)
             var fieldAliases = {};
             var fieldImages = {};
             var fieldLabels = {};
@@ -136,8 +187,85 @@
             lyr_copiaparavisor_0.set('fieldLabels', fieldLabels);
         </script> 
 
-        <!-- Autolinker y script final del visor -->
         <script src="./resources/Autolinker.min.js"></script>
         <script src="./resources/qgis2web.js"></script>
+
+        <!-- Lógica de Búsqueda y Zoom por ROL -->
+        <script type="text/javascript">
+            document.addEventListener("DOMContentLoaded", function () {
+                var searchInput = document.getElementById('rol-search-input');
+                var resultsList = document.getElementById('rol-search-results');
+
+                // Obtener todas las entidades de la capa
+                var features = jsonSource_copiaparavisor_0.getFeatures();
+
+                // Función para obtener el valor del campo ROL sin importar mayúsculas/minúsculas
+                function getRolValue(feature) {
+                    var props = feature.getProperties();
+                    for (var key in props) {
+                        if (key.toLowerCase() === 'rol') {
+                            return props[key] ? String(props[key]) : '';
+                        }
+                    }
+                    return '';
+                }
+
+                // Evento al escribir en el campo de búsqueda
+                searchInput.addEventListener('input', function () {
+                    var query = searchInput.value.trim().toLowerCase();
+                    resultsList.innerHTML = '';
+
+                    if (query.length === 0) {
+                        resultsList.style.display = 'none';
+                        return;
+                    }
+
+                    var matches = features.filter(function (feature) {
+                        var rolVal = getRolValue(feature).toLowerCase();
+                        return rolVal.includes(query);
+                    });
+
+                    if (matches.length > 0) {
+                        resultsList.style.display = 'block';
+                        matches.slice(0, 10).forEach(function (feature) {
+                            var rolVal = getRolValue(feature);
+                            var li = document.createElement('li');
+                            li.textContent = 'ROL: ' + rolVal;
+                            li.addEventListener('click', function () {
+                                zoomToFeature(feature, rolVal);
+                            });
+                            resultsList.appendChild(li);
+                        });
+                    } else {
+                        resultsList.style.display = 'block';
+                        var li = document.createElement('li');
+                        li.textContent = 'Sin resultados';
+                        li.style.cursor = 'default';
+                        li.style.color = '#888';
+                        resultsList.appendChild(li);
+                    }
+                });
+
+                // Zoom al elemento seleccionado
+                function zoomToFeature(feature, rolVal) {
+                    searchInput.value = rolVal;
+                    resultsList.style.display = 'none';
+
+                    var extent = feature.getGeometry().getExtent();
+                    map.getView().fit(extent, {
+                        duration: 1000,
+                        maxZoom: 19,
+                        padding: [50, 50, 50, 50]
+                    });
+                }
+
+                // Ocultar resultados al hacer clic fuera del buscador
+                document.addEventListener('click', function (e) {
+                    if (!document.getElementById('rol-search-container').contains(e.target)) {
+                        resultsList.style.display = 'none';
+                    }
+                });
+            });
+        </script>
     </body>
 </html>
