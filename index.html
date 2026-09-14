@@ -243,7 +243,7 @@
         <div id="app-container">
             <div id="map">
                 <div id="custom-popup" class="custom-ol-popup">
-                    <span id="custom-popup-pin" class="custom-popup-pin" title="Coordenadas prediales">📍</span>
+                    <span id="custom-popup-pin" class="custom-popup-pin" title="Cerrar">📍</span>
                     <div id="custom-popup-content"></div>
                 </div>
             </div>
@@ -311,7 +311,7 @@
 
                 map.updateSize();
 
-                // 1. Selector de Capas Base
+                // 1. Capas Base
                 if (typeof lyr_osm !== 'undefined' && typeof lyr_google_sat !== 'undefined') {
                     lyr_osm.setVisible(true);
                     lyr_google_sat.setVisible(false);
@@ -336,7 +336,7 @@
                     });
                 }
 
-                // 2. Estilo sin relleno visible + detección de clic interior
+                // 2. Identificar la capa precargada de qgis2web y aplicar estilo transparente
                 var targetLayer = null;
                 if (typeof lyr_copiaparavisor_0 !== 'undefined') {
                     targetLayer = lyr_copiaparavisor_0;
@@ -357,7 +357,7 @@
                     }));
                 }
 
-                // 3. Coordenadas del cursor
+                // 3. Coordenadas dinámicas
                 var mousePositionControl = new ol.control.MousePosition({
                     coordinateFormat: function(coord) {
                         return ol.coordinate.format(coord, '{y}   {x}', 6);
@@ -395,7 +395,7 @@
                     return '';
                 }
 
-                // 5. Pop-up centrado
+                // 5. Pop-up desplegado exactamente en el centro geométrico de la propiedad
                 function showCustomPopup(feature, clickCoord) {
                     var geom = feature.getGeometry();
                     if (!geom) return;
@@ -418,7 +418,7 @@
                     customOverlay.setPosition(displayCoord);
                 }
 
-                // Clic en el mapa
+                // Clic en polígono
                 map.on('singleclick', function(evt) {
                     var found = false;
                     map.forEachFeatureAtPixel(evt.pixel, function(feature) {
@@ -432,100 +432,101 @@
                     }
                 });
 
-                // 6. EXECUTE SEARCH AND ZOOM FIX
-                if (typeof json_copiaparavisor_0 !== 'undefined') {
-                    var format = new ol.format.GeoJSON();
-                    var parsedFeatures = format.readFeatures(json_copiaparavisor_0, {
-                        dataProjection: 'EPSG:4326',
-                        featureProjection: 'EPSG:3857'
-                    });
+                // 6. BÚSQUEDA Y ZOOM DIRECTO (Extrayendo directamente de la fuente de la capa viva)
+                var searchInput = document.getElementById('rol-search-input');
+                var resultsList = document.getElementById('rol-search-results');
 
-                    var searchInput = document.getElementById('rol-search-input');
-                    var resultsList = document.getElementById('rol-search-results');
-
-                    function executeSearchAndZoom(feature, rolVal) {
-                        searchInput.value = rolVal;
-                        resultsList.style.display = 'none';
-
-                        var geom = feature.getGeometry();
-                        if (geom) {
-                            map.updateSize(); // Sincroniza el canvas antes de encuadrar
-
-                            var extent = geom.getExtent();
-                            var center = ol.extent.getCenter(extent);
-
-                            // Ajuste nativo de OpenLayers para centrado perfecto con sidebar
-                            map.getView().fit(extent, {
-                                duration: 350,
-                                maxZoom: 18,
-                                padding: [50, 370, 50, 50] // Colchón de 370px a la derecha para centrar en el área libre
-                            });
-
-                            showCustomPopup(feature, center);
-                        }
+                function getSourceFeatures() {
+                    if (targetLayer && targetLayer.getSource()) {
+                        return targetLayer.getSource().getFeatures();
                     }
+                    return [];
+                }
 
-                    searchInput.addEventListener('input', function() {
-                        var query = searchInput.value.trim().toLowerCase();
-                        resultsList.innerHTML = '';
+                function executeSearchAndZoom(feature, rolVal) {
+                    searchInput.value = rolVal;
+                    resultsList.style.display = 'none';
 
-                        if (query.length === 0) {
-                            resultsList.style.display = 'none';
-                            return;
-                        }
+                    var geom = feature.getGeometry();
+                    if (geom) {
+                        map.updateSize();
 
-                        var matches = parsedFeatures.filter(function(feature) {
-                            var rol = getRolFromFeature(feature).toLowerCase();
-                            return rol.includes(query);
+                        var extent = geom.getExtent();
+                        var center = ol.extent.getCenter(extent);
+
+                        // Encuadre nativo del predio con compensación para el menú derecho (350px)
+                        map.getView().fit(extent, {
+                            duration: 350,
+                            maxZoom: 18,
+                            padding: [60, 360, 60, 60]
                         });
 
-                        if (matches.length > 0) {
-                            resultsList.style.display = 'block';
-                            matches.slice(0, 10).forEach(function(feature) {
-                                var rolVal = getRolFromFeature(feature);
-                                var li = document.createElement('li');
-                                li.textContent = 'ROL: ' + rolVal;
-                                li.addEventListener('click', function() {
-                                    executeSearchAndZoom(feature, rolVal);
-                                });
-                                resultsList.appendChild(li);
-                            });
-                        } else {
-                            resultsList.style.display = 'block';
-                            var li = document.createElement('li');
-                            li.textContent = 'Sin resultados';
-                            li.style.color = '#909399';
-                            resultsList.appendChild(li);
-                        }
-                    });
-
-                    searchInput.addEventListener('keydown', function(e) {
-                        if (e.key === 'Enter') {
-                            var query = searchInput.value.trim().toLowerCase();
-                            if (query.length === 0) return;
-
-                            var match = parsedFeatures.find(function(feature) {
-                                return getRolFromFeature(feature).toLowerCase() === query;
-                            });
-
-                            if (!match) {
-                                match = parsedFeatures.find(function(feature) {
-                                    return getRolFromFeature(feature).toLowerCase().includes(query);
-                                });
-                            }
-
-                            if (match) {
-                                executeSearchAndZoom(match, getRolFromFeature(match));
-                            }
-                        }
-                    });
-
-                    document.addEventListener('click', function(e) {
-                        if (!document.getElementById('sidebar').contains(e.target)) {
-                            resultsList.style.display = 'none';
-                        }
-                    });
+                        showCustomPopup(feature, center);
+                    }
                 }
+
+                searchInput.addEventListener('input', function() {
+                    var query = searchInput.value.trim().toLowerCase();
+                    resultsList.innerHTML = '';
+
+                    if (query.length === 0) {
+                        resultsList.style.display = 'none';
+                        return;
+                    }
+
+                    var features = getSourceFeatures();
+                    var matches = features.filter(function(feature) {
+                        var rol = getRolFromFeature(feature).toLowerCase();
+                        return rol.includes(query);
+                    });
+
+                    if (matches.length > 0) {
+                        resultsList.style.display = 'block';
+                        matches.slice(0, 10).forEach(function(feature) {
+                            var rolVal = getRolFromFeature(feature);
+                            var li = document.createElement('li');
+                            li.textContent = 'ROL: ' + rolVal;
+                            li.addEventListener('click', function() {
+                                executeSearchAndZoom(feature, rolVal);
+                            });
+                            resultsList.appendChild(li);
+                        });
+                    } else {
+                        resultsList.style.display = 'block';
+                        var li = document.createElement('li');
+                        li.textContent = 'Sin resultados';
+                        li.style.color = '#909399';
+                        resultsList.appendChild(li);
+                    }
+                });
+
+                searchInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        var query = searchInput.value.trim().toLowerCase();
+                        if (query.length === 0) return;
+
+                        var features = getSourceFeatures();
+                        var match = features.find(function(feature) {
+                            return getRolFromFeature(feature).toLowerCase() === query;
+                        });
+
+                        if (!match) {
+                            match = features.find(function(feature) {
+                                return getRolFromFeature(feature).toLowerCase().includes(query);
+                            });
+                        }
+
+                        if (match) {
+                            executeSearchAndZoom(match, getRolFromFeature(match));
+                        }
+                    }
+                });
+
+                document.addEventListener('click', function(e) {
+                    if (!document.getElementById('sidebar').contains(e.target)) {
+                        resultsList.style.display = 'none';
+                    }
+                });
             });
         </script>
     </body>
