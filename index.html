@@ -7,12 +7,9 @@
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-capable" content="yes">
         
-        <!-- Hojas de estilo de OpenLayers y Plugins -->
+        <!-- Recortamos dependencias y dejamos solo los estilos necesarios -->
         <link rel="stylesheet" href="./resources/ol.css">
-        <link rel="stylesheet" href="resources/fontawesome-all.min.css">
-        <link href="resources/photon-geocoder-autocomplete.min.css" rel="stylesheet">
         <link rel="stylesheet" href="./resources/ol-layerswitcher.css">
-        <link rel="stylesheet" href="./resources/qgis2web.css">
         
         <style>
         html, body {
@@ -27,26 +24,6 @@
         #map {
             width: 100%;
             height: 100%;
-        }
-        
-        /* Estilos de Controles de OpenLayers */
-        .ol-control > * {
-            background-color: #f8f8f8!important;
-            color: #444444!important;
-            border-radius: 0px;
-        }
-        .ol-attribution a, .gcd-gl-input::placeholder, .search-layer-input-search::placeholder {
-            color: #444444!important;
-        }
-        .search-layer-input-search {
-            background-color: #f8f8f8!important;
-        }
-        .ol-control > *:focus, .ol-control >*:hover {
-            background-color: rgba(248, 248, 248, 0.7)!important;
-        } 
-        .ol-control {
-            background-color: rgba(255,255,255,.4) !important;
-            padding: 2px !important;
         }
 
         /* Buscador por ROL */
@@ -92,7 +69,7 @@
             color: #0078d7;
         }
 
-        /* Ventana Emergente (Popup) */
+        /* Pop-up */
         .ol-popup {
             position: absolute;
             background-color: white;
@@ -173,20 +150,14 @@
             </div>
         </div>
         
-        <!-- Scripts base -->
-        <script src="resources/qgis2web_expressions.js"></script>
-        <script src="./resources/functions.js"></script>
+        <!-- Librerías indispensables -->
         <script src="./resources/ol.js"></script>
         <script src="./resources/ol-layerswitcher.js"></script>
-        <script src="resources/photon-geocoder-autocomplete.min.js"></script>
-        <script src="resources/olms.js"></script>
         <script src="layers/copiaparavisor_0.js"></script>
-        <script src="styles/copiaparavisor_0_style.js"></script>
-        <script src="./resources/Autolinker.min.js"></script>
 
-        <!-- Lógica autónoma e integrada del visor -->
+        <!-- Inicialización completa del visor -->
         <script type="text/javascript">
-            document.addEventListener("DOMContentLoaded", function() {
+            window.onload = function() {
                 // 1. Capas Mapas Base
                 var lyr_osm = new ol.layer.Tile({
                     'title': 'OpenStreetMap',
@@ -204,7 +175,7 @@
                     })
                 });
 
-                // 2. Estilo Celeste Suave Transparente
+                // 2. Estilo Celeste Suave Semi-Transparente
                 var customCelesteStyle = new ol.style.Style({
                     fill: new ol.style.Fill({
                         color: 'rgba(135, 206, 250, 0.45)'
@@ -215,11 +186,12 @@
                     })
                 });
 
-                // 3. Capa Vectorial de Predios
+                // 3. Procesar datos del archivo vector (json_copiaparavisor_0)
                 var format_copiaparavisor_0 = new ol.format.GeoJSON();
                 var features_copiaparavisor_0 = format_copiaparavisor_0.readFeatures(json_copiaparavisor_0, 
                     {dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857'});
-                var jsonSource_copiaparavisor_0 = new ol.source.Vector({ atts: '' });
+                
+                var jsonSource_copiaparavisor_0 = new ol.source.Vector();
                 jsonSource_copiaparavisor_0.addFeatures(features_copiaparavisor_0);
 
                 var lyr_copiaparavisor_0 = new ol.layer.Vector({
@@ -228,8 +200,6 @@
                     style: customCelesteStyle,
                     title: 'Predios'
                 });
-
-                var layersList = [lyr_osm, lyr_google_sat, lyr_copiaparavisor_0];
 
                 // 4. Coordenadas en Tiempo Real
                 var mousePositionControl = new ol.control.MousePosition({
@@ -241,30 +211,7 @@
                     undefinedHTML: 'Sin coordenadas'
                 });
 
-                // 5. Inicialización del Mapa
-                var map = new ol.Map({
-                    target: 'map',
-                    controls: ol.control.defaults().extend([mousePositionControl]),
-                    layers: layersList,
-                    view: new ol.View({
-                        center: [0, 0],
-                        zoom: 2
-                    })
-                });
-
-                // Zoom inicial a los predios
-                var extent = jsonSource_copiaparavisor_0.getExtent();
-                if (!ol.extent.isEmpty(extent)) {
-                    map.getView().fit(extent, { padding: [50, 50, 50, 50] });
-                }
-
-                // Selector de capas (OpenStreetMap / Google Satélite)
-                var layerSwitcher = new ol.control.LayerSwitcher({
-                    tipLabel: 'Leyenda y Capas Base'
-                });
-                map.addControl(layerSwitcher);
-
-                // 6. Overlay Popup
+                // 5. Configurar Overlay Popup
                 var container = document.getElementById('popup');
                 var content = document.getElementById('popup-content');
                 var closer = document.getElementById('popup-closer');
@@ -274,7 +221,6 @@
                     autoPan: true,
                     autoPanAnimation: { duration: 250 }
                 });
-                map.addOverlay(overlay);
 
                 closer.onclick = function() {
                     overlay.setPosition(undefined);
@@ -282,7 +228,31 @@
                     return false;
                 };
 
-                // Lectura flexible del atributo ROL
+                // 6. Construir el Mapa
+                var map = new ol.Map({
+                    target: 'map',
+                    controls: ol.control.defaults().extend([mousePositionControl]),
+                    layers: [lyr_osm, lyr_google_sat, lyr_copiaparavisor_0],
+                    overlays: [overlay],
+                    view: new ol.View({
+                        center: [0, 0],
+                        zoom: 2
+                    })
+                });
+
+                // Centrar automáticamente en tus predios
+                var extent = jsonSource_copiaparavisor_0.getExtent();
+                if (!ol.extent.isEmpty(extent)) {
+                    map.getView().fit(extent, { padding: [50, 50, 50, 50] });
+                }
+
+                // Selector de capas (OpenStreetMap / Google Satélite)
+                var layerSwitcher = new ol.control.LayerSwitcher({
+                    tipLabel: 'Leyenda'
+                });
+                map.addControl(layerSwitcher);
+
+                // Función auxiliar para leer ROL / Rol / rol
                 function getRolValue(feature) {
                     var props = feature.getProperties();
                     for (var key in props) {
@@ -293,10 +263,10 @@
                     return 'N/A';
                 }
 
-                // Mostrar Popup
+                // Función para desplegar Popup
                 function showFeaturePopup(feature) {
-                    var extent = feature.getGeometry().getExtent();
-                    var center = ol.extent.getCenter(extent);
+                    var featExtent = feature.getGeometry().getExtent();
+                    var center = ol.extent.getCenter(featExtent);
                     var lonLat = ol.proj.toLonLat(center);
                     var lat = lonLat[1].toFixed(6);
                     var lon = lonLat[0].toFixed(6);
@@ -350,8 +320,8 @@
                             li.addEventListener('click', function() {
                                 searchInput.value = rolVal;
                                 resultsList.style.display = 'none';
-                                var featureExtent = feature.getGeometry().getExtent();
-                                map.getView().fit(featureExtent, { duration: 1000, maxZoom: 19, padding: [80, 80, 80, 80] });
+                                var fExtent = feature.getGeometry().getExtent();
+                                map.getView().fit(fExtent, { duration: 1000, maxZoom: 19, padding: [80, 80, 80, 80] });
                                 showFeaturePopup(feature);
                             });
                             resultsList.appendChild(li);
@@ -370,7 +340,7 @@
                         resultsList.style.display = 'none';
                     }
                 });
-            });
+            };
         </script>
     </body>
 </html>
