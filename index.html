@@ -131,6 +131,17 @@
         <script src="./resources/qgis2web.js"></script>
 
         <script type="text/javascript">
+            // FORZAR ESTILO SIN RELLENO
+            if (typeof lyr_copiaparavisor_0 !== 'undefined') {
+                lyr_copiaparavisor_0.setStyle(new ol.style.Style({
+                    fill: null, // Sin relleno
+                    stroke: new ol.style.Stroke({
+                        color: '#2b8cbe', // Borde azul/celeste
+                        width: 2         // Grosor del borde
+                    })
+                }));
+            }
+
             window.addEventListener('load', function () {
                 if (typeof map === 'undefined') return;
 
