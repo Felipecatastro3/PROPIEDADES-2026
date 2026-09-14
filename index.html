@@ -105,7 +105,7 @@
         <div id="map">
             <!-- Widget de Búsqueda -->
             <div id="rol-search-container">
-                <input type="text" id="rol-search-input" placeholder="Buscar ROL..." autocomplete="off">
+                <input type="text" id="rol-search-input" placeholder="Buscar ROL (Presione Enter)..." autocomplete="off">
                 <ul id="rol-search-results"></ul>
             </div>
 
@@ -131,13 +131,13 @@
         <script src="./resources/qgis2web.js"></script>
 
         <script type="text/javascript">
-            // FORZAR ESTILO SIN RELLENO
+            // Forzar estilo sin relleno (solo contornos)
             if (typeof lyr_copiaparavisor_0 !== 'undefined') {
                 lyr_copiaparavisor_0.setStyle(new ol.style.Style({
-                    fill: null, // Sin relleno
+                    fill: null,
                     stroke: new ol.style.Stroke({
-                        color: '#2b8cbe', // Borde azul/celeste
-                        width: 2         // Grosor del borde
+                        color: '#2b8cbe',
+                        width: 2
                     })
                 }));
             }
@@ -167,7 +167,7 @@
                     return 'N/A';
                 }
 
-                // 3. Mostrar Popup personalizado
+                // 3. Mostrar Popup con ROL y Coordenadas
                 function showCustomPopup(feature) {
                     var extent = feature.getGeometry().getExtent();
                     var center = ol.extent.getCenter(extent);
@@ -187,6 +187,7 @@
                     }
                 }
 
+                // Clic directo sobre una propiedad
                 map.on('singleclick', function(evt) {
                     map.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
                         if (layer === lyr_copiaparavisor_0) {
@@ -195,13 +196,24 @@
                     });
                 });
 
-                // 4. Lógica de búsqueda por ROL
+                // 4. Lógica de búsqueda por ROL (al seleccionar o presionar Enter)
                 var searchInput = document.getElementById('rol-search-input');
                 var resultsList = document.getElementById('rol-search-results');
                 
                 if (typeof jsonSource_copiaparavisor_0 !== 'undefined') {
                     var features = jsonSource_copiaparavisor_0.getFeatures();
 
+                    function executeSearchAndZoom(feature, rolVal) {
+                        searchInput.value = rolVal;
+                        resultsList.style.display = 'none';
+                        var featureExtent = feature.getGeometry().getExtent();
+                        
+                        // Hacer Zoom y abrir el Popup con las coordenadas
+                        map.getView().fit(featureExtent, { duration: 250, maxZoom: 19, padding: [80, 80, 80, 80] });
+                        showCustomPopup(feature);
+                    }
+
+                    // Sugerencias en tiempo real al escribir
                     searchInput.addEventListener('input', function() {
                         var query = searchInput.value.trim().toLowerCase();
                         resultsList.innerHTML = '';
@@ -222,12 +234,7 @@
                                 var li = document.createElement('li');
                                 li.textContent = 'ROL: ' + rolVal;
                                 li.addEventListener('click', function() {
-                                    searchInput.value = rolVal;
-                                    resultsList.style.display = 'none';
-                                    var featureExtent = feature.getGeometry().getExtent();
-                                    
-                                    map.getView().fit(featureExtent, { duration: 250, maxZoom: 19, padding: [80, 80, 80, 80] });
-                                    showCustomPopup(feature);
+                                    executeSearchAndZoom(feature, rolVal);
                                 });
                                 resultsList.appendChild(li);
                             });
@@ -237,6 +244,28 @@
                             li.textContent = 'Sin resultados';
                             li.style.color = '#888';
                             resultsList.appendChild(li);
+                        }
+                    });
+
+                    // Evento al presionar ENTER
+                    searchInput.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter') {
+                            var query = searchInput.value.trim().toLowerCase();
+                            if (query.length === 0) return;
+
+                            var match = features.find(function(feature) {
+                                return getRolValue(feature).toLowerCase() === query;
+                            });
+
+                            if (!match) {
+                                match = features.find(function(feature) {
+                                    return getRolValue(feature).toLowerCase().includes(query);
+                                });
+                            }
+
+                            if (match) {
+                                executeSearchAndZoom(match, getRolValue(match));
+                            }
                         }
                     });
 
