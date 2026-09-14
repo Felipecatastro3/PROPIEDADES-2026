@@ -29,6 +29,7 @@
             height: 100%;
         }
         
+        /* Ajustes visuales de controles de OpenLayers */
         .ol-control > * {
             background-color: #f8f8f8!important;
             color: #444444!important;
@@ -48,13 +49,13 @@
             padding: 2px !important;
         }
 
-        /* Estilos del Buscador de ROL */
+        /* Buscador de ROL */
         #rol-search-container {
             position: absolute;
             top: 10px;
             left: 50px;
             z-index: 1000;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.95);
             padding: 6px;
             border-radius: 4px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.3);
@@ -86,31 +87,93 @@
             font-size: 13px;
             border-bottom: 1px solid #eee;
         }
-        #rol-search-results li:last-child {
-            border-bottom: none;
-        }
         #rol-search-results li:hover {
             background-color: #f0f0f0;
             color: #0078d7;
+        }
+
+        /* Ventana emergente (Popup) */
+        .ol-popup {
+            position: absolute;
+            background-color: white;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+            padding: 12px 15px;
+            border-radius: 6px;
+            border: 1px solid #cccccc;
+            bottom: 12px;
+            left: -50px;
+            min-width: 200px;
+        }
+        .ol-popup:after, .ol-popup:before {
+            top: 100%;
+            border: solid transparent;
+            content: " ";
+            height: 0;
+            width: 0;
+            position: absolute;
+            pointer-events: none;
+        }
+        .ol-popup:after {
+            border-top-color: white;
+            border-width: 10px;
+            left: 48px;
+            margin-left: -10px;
+        }
+        .ol-popup:before {
+            border-top-color: #cccccc;
+            border-width: 11px;
+            left: 48px;
+            margin-left: -11px;
+        }
+        .ol-popup-closer {
+            text-decoration: none;
+            position: absolute;
+            top: 4px;
+            right: 8px;
+            color: #888;
+            font-size: 14px;
+        }
+        .ol-popup-closer:after {
+            content: "✖";
+        }
+
+        /* Widget de Coordenadas en Tiempo Real */
+        .custom-mouse-position {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 12px;
+            font-family: monospace;
+            color: #333;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
         }
         </style>
         <title>Visor WebGIS</title>
     </head>
     <body>
         <div id="map">
-            <!-- Widget de Búsqueda de ROL -->
+            <!-- Widget de búsqueda -->
             <div id="rol-search-container">
                 <input type="text" id="rol-search-input" placeholder="Buscar ROL..." autocomplete="off">
                 <ul id="rol-search-results"></ul>
             </div>
 
+            <!-- Contenedor de Coordenadas en tiempo real -->
+            <div id="mouse-position" class="custom-mouse-position"></div>
+
+            <!-- Contenedor del Popup -->
             <div id="popup" class="ol-popup">
                 <a href="#" id="popup-closer" class="ol-popup-closer"></a>
                 <div id="popup-content"></div>
             </div>
         </div>
         
-        <!-- Scripts base de qgis2web -->
+        <!-- Scripts base del proyecto qgis2web -->
         <script src="resources/qgis2web_expressions.js"></script>
         <script src="./resources/functions.js"></script>
         <script src="./resources/ol.js"></script>
@@ -118,15 +181,13 @@
         <script src="resources/photon-geocoder-autocomplete.min.js"></script>
         <script src="resources/olms.js"></script>
         
-        <!-- Capa vectorial de QGIS -->
+        <!-- Capa vectorial exportada desde QGIS -->
         <script src="layers/copiaparavisor_0.js"></script>
-        <script src="styles/copiaparavisor_0_style.js"></script>
         
-        <!-- Configuración de Capas Base, Capa Vectorial e Integración -->
         <script type="text/javascript">
             var wms_layers = [];
 
-            // 1. Capa Base: OpenStreetMap (Visible al inicio)
+            // 1. Capas Base para el selector de capas
             var lyr_osm = new ol.layer.Tile({
                 'title': 'OpenStreetMap',
                 'type': 'base',
@@ -134,7 +195,6 @@
                 source: new ol.source.OSM()
             });
 
-            // 2. Capa Base: Google Satélite (Oculta al inicio para permitir intercambio)
             var lyr_google_sat = new ol.layer.Tile({
                 'title': 'Google Satélite',
                 'type': 'base',
@@ -144,128 +204,193 @@
                 })
             });
 
-            // 3. Procesamiento de la Capa Vectorial de QGIS (copiaparavisor_0)
+            // 2. Estilo Celeste Suave Semi-Transparente
+            var customCelesteStyle = new ol.style.Style({
+                fill: new ol.style.Fill({
+                    color: 'rgba(135, 206, 250, 0.45)'
+                }),
+                stroke: new ol.style.Stroke({
+                    color: '#2b8cbe',
+                    width: 1.5
+                })
+            });
+
+            // 3. Capa Vectorial de Predios / Propiedades
             var format_copiaparavisor_0 = new ol.format.GeoJSON();
             var features_copiaparavisor_0 = format_copiaparavisor_0.readFeatures(json_copiaparavisor_0, 
                 {dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857'});
-            var jsonSource_copiaparavisor_0 = new ol.source.Vector({
-                atts: '',
-            });
+            var jsonSource_copiaparavisor_0 = new ol.source.Vector({ atts: '' });
             jsonSource_copiaparavisor_0.addFeatures(features_copiaparavisor_0);
 
             var lyr_copiaparavisor_0 = new ol.layer.Vector({
                 opacity: 1,
-                vectorAsImage: false,
                 source: jsonSource_copiaparavisor_0,
-                style: style_copiaparavisor_0,
+                style: customCelesteStyle,
                 popuplayertitle: 'copiaparavisor',
                 interactive: true,
-                title: '<img src="styles/legend/copiaparavisor_0.png" /> copiaparavisor'
+                title: 'Predios'
             });
 
             lyr_copiaparavisor_0.setVisible(true);
 
-            // Lista de capas del mapa
+            // Lista de capas cargadas
             var layersList = [lyr_osm, lyr_google_sat, lyr_copiaparavisor_0];
 
-            // Configuración de los atributos para las ventanas emergentes (Popups)
-            var fieldAliases = {};
-            var fieldImages = {};
-            var fieldLabels = {};
+            // 4. Control de Coordenadas en Tiempo Real
+            var mousePositionControl = new ol.control.MousePosition({
+                coordinateFormat: function(coord) {
+                    return ol.coordinate.format(coord, '{y}   {x}', 6);
+                },
+                projection: 'EPSG:4326',
+                target: document.getElementById('mouse-position'),
+                undefinedHTML: 'Sin coordenadas'
+            });
 
-            if (typeof json_copiaparavisor_0 !== 'undefined' && json_copiaparavisor_0.features.length > 0) {
-                var properties = json_copiaparavisor_0.features[0].properties;
-                for (var key in properties) {
-                    fieldAliases[key] = key;
-                    fieldImages[key] = 'TextEdit';
-                    fieldLabels[key] = 'inline label - visible';
-                }
+            // 5. Inicialización del Mapa de OpenLayers
+            var map = new ol.Map({
+                target: 'map',
+                controls: ol.control.defaults().extend([mousePositionControl]),
+                layers: layersList,
+                view: new ol.View({
+                    center: [0, 0],
+                    zoom: 2
+                })
+            });
+
+            // Extensión automática a la capa vectorial
+            var extent = jsonSource_copiaparavisor_0.getExtent();
+            if (!ol.extent.isEmpty(extent)) {
+                map.getView().fit(extent, { padding: [50, 50, 50, 50] });
             }
 
-            lyr_copiaparavisor_0.set('fieldAliases', fieldAliases);
-            lyr_copiaparavisor_0.set('fieldImages', fieldImages);
-            lyr_copiaparavisor_0.set('fieldLabels', fieldLabels);
-        </script> 
+            // Selector de Capas Base
+            var layerSwitcher = new ol.control.LayerSwitcher({
+                tipLabel: 'Leyenda y Capas Base'
+            });
+            map.addControl(layerSwitcher);
 
-        <script src="./resources/Autolinker.min.js"></script>
-        <script src="./resources/qgis2web.js"></script>
+            // 6. Configuración del Overlay para Popups
+            var container = document.getElementById('popup');
+            var content = document.getElementById('popup-content');
+            var closer = document.getElementById('popup-closer');
 
-        <!-- Lógica de Búsqueda y Zoom por ROL -->
-        <script type="text/javascript">
-            document.addEventListener("DOMContentLoaded", function () {
-                var searchInput = document.getElementById('rol-search-input');
-                var resultsList = document.getElementById('rol-search-results');
+            var overlay = new ol.Overlay({
+                element: container,
+                autoPan: true,
+                autoPanAnimation: { duration: 250 }
+            });
+            map.addOverlay(overlay);
 
-                // Obtener todas las entidades de la capa
-                var features = jsonSource_copiaparavisor_0.getFeatures();
+            closer.onclick = function() {
+                overlay.setPosition(undefined);
+                closer.blur();
+                return false;
+            };
 
-                // Función para obtener el valor del campo ROL sin importar mayúsculas/minúsculas
-                function getRolValue(feature) {
-                    var props = feature.getProperties();
-                    for (var key in props) {
-                        if (key.toLowerCase() === 'rol') {
-                            return props[key] ? String(props[key]) : '';
-                        }
+            // Función para obtener el ROL ignorando mayúsculas/minúsculas
+            function getRolValue(feature) {
+                var props = feature.getProperties();
+                for (var key in props) {
+                    if (key.toLowerCase() === 'rol') {
+                        return props[key] ? String(props[key]) : 'N/A';
                     }
-                    return '';
                 }
+                return 'N/A';
+            }
 
-                // Evento al escribir en el campo de búsqueda
-                searchInput.addEventListener('input', function () {
-                    var query = searchInput.value.trim().toLowerCase();
-                    resultsList.innerHTML = '';
+            // Función para mostrar Popup centrado con Coordenadas Lat/Lon
+            function showFeaturePopup(feature) {
+                var extent = feature.getGeometry().getExtent();
+                var center = ol.extent.getCenter(extent);
+                
+                var lonLat = ol.proj.toLonLat(center);
+                var lat = lonLat[1].toFixed(6);
+                var lon = lonLat[0].toFixed(6);
+                var rol = getRolValue(feature);
 
-                    if (query.length === 0) {
-                        resultsList.style.display = 'none';
-                        return;
-                    }
+                content.innerHTML = '<strong style="color:#0078d7; font-size:14px;">ROL: ' + rol + '</strong><br>' +
+                                    '<span style="font-size:12px; color:#444;">Coordenadas:</span><br>' +
+                                    '<code style="background:#f4f4f4; padding:2px 4px; border-radius:3px;">' + lat + '   ' + lon + '</code>';
+                
+                overlay.setPosition(center);
+            }
 
-                    var matches = features.filter(function (feature) {
-                        var rolVal = getRolValue(feature).toLowerCase();
-                        return rolVal.includes(query);
-                    });
-
-                    if (matches.length > 0) {
-                        resultsList.style.display = 'block';
-                        matches.slice(0, 10).forEach(function (feature) {
-                            var rolVal = getRolValue(feature);
-                            var li = document.createElement('li');
-                            li.textContent = 'ROL: ' + rolVal;
-                            li.addEventListener('click', function () {
-                                zoomToFeature(feature, rolVal);
-                            });
-                            resultsList.appendChild(li);
-                        });
-                    } else {
-                        resultsList.style.display = 'block';
-                        var li = document.createElement('li');
-                        li.textContent = 'Sin resultados';
-                        li.style.cursor = 'default';
-                        li.style.color = '#888';
-                        resultsList.appendChild(li);
+            // Evento Click directo en la propiedad del mapa
+            map.on('singleclick', function(evt) {
+                var featureFound = false;
+                map.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
+                    if (layer === lyr_copiaparavisor_0 && !featureFound) {
+                        showFeaturePopup(feature);
+                        featureFound = true;
                     }
                 });
+                if (!featureFound) {
+                    overlay.setPosition(undefined);
+                }
+            });
 
-                // Zoom al elemento seleccionado
-                function zoomToFeature(feature, rolVal) {
-                    searchInput.value = rolVal;
+            // 7. Lógica del Buscador
+            var searchInput = document.getElementById('rol-search-input');
+            var resultsList = document.getElementById('rol-search-results');
+            var features = jsonSource_copiaparavisor_0.getFeatures();
+
+            searchInput.addEventListener('input', function() {
+                var query = searchInput.value.trim().toLowerCase();
+                resultsList.innerHTML = '';
+
+                if (query.length === 0) {
                     resultsList.style.display = 'none';
-
-                    var extent = feature.getGeometry().getExtent();
-                    map.getView().fit(extent, {
-                        duration: 1000,
-                        maxZoom: 19,
-                        padding: [50, 50, 50, 50]
-                    });
+                    return;
                 }
 
-                // Ocultar resultados al hacer clic fuera del buscador
-                document.addEventListener('click', function (e) {
-                    if (!document.getElementById('rol-search-container').contains(e.target)) {
-                        resultsList.style.display = 'none';
-                    }
+                var matches = features.filter(function(feature) {
+                    var rolVal = getRolValue(feature).toLowerCase();
+                    return rolVal.includes(query);
                 });
+
+                if (matches.length > 0) {
+                    resultsList.style.display = 'block';
+                    matches.slice(0, 10).forEach(function(feature) {
+                        var rolVal = getRolValue(feature);
+                        var li = document.createElement('li');
+                        li.textContent = 'ROL: ' + rolVal;
+                        li.addEventListener('click', function() {
+                            zoomAndShowPopup(feature, rolVal);
+                        });
+                        resultsList.appendChild(li);
+                    });
+                } else {
+                    resultsList.style.display = 'block';
+                    var li = document.createElement('li');
+                    li.textContent = 'Sin resultados';
+                    li.style.cursor = 'default';
+                    li.style.color = '#888';
+                    resultsList.appendChild(li);
+                }
+            });
+
+            function zoomAndShowPopup(feature, rolVal) {
+                searchInput.value = rolVal;
+                resultsList.style.display = 'none';
+
+                var extent = feature.getGeometry().getExtent();
+                
+                map.getView().fit(extent, {
+                    duration: 1000,
+                    maxZoom: 19,
+                    padding: [80, 80, 80, 80]
+                });
+
+                showFeaturePopup(feature);
+            }
+
+            document.addEventListener('click', function(e) {
+                if (!document.getElementById('rol-search-container').contains(e.target)) {
+                    resultsList.style.display = 'none';
+                }
             });
         </script>
+        
+        <script src="./resources/Autolinker.min.js"></script>
     </body>
 </html>
