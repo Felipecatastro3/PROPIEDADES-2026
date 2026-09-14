@@ -7,7 +7,6 @@
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-capable" content="yes">
         
-        <!-- Recortamos dependencias y dejamos solo los estilos necesarios -->
         <link rel="stylesheet" href="./resources/ol.css">
         <link rel="stylesheet" href="./resources/ol-layerswitcher.css">
         
@@ -150,14 +149,13 @@
             </div>
         </div>
         
-        <!-- Librerías indispensables -->
+        <!-- Carga de librerías esenciales -->
         <script src="./resources/ol.js"></script>
         <script src="./resources/ol-layerswitcher.js"></script>
         <script src="layers/copiaparavisor_0.js"></script>
 
-        <!-- Inicialización completa del visor -->
         <script type="text/javascript">
-            window.onload = function() {
+            window.addEventListener('load', function() {
                 // 1. Capas Mapas Base
                 var lyr_osm = new ol.layer.Tile({
                     'title': 'OpenStreetMap',
@@ -175,7 +173,7 @@
                     })
                 });
 
-                // 2. Estilo Celeste Suave Semi-Transparente
+                // 2. Estilo Celeste Transparente
                 var customCelesteStyle = new ol.style.Style({
                     fill: new ol.style.Fill({
                         color: 'rgba(135, 206, 250, 0.45)'
@@ -186,29 +184,31 @@
                     })
                 });
 
-                // 3. Procesar datos del archivo vector (json_copiaparavisor_0)
-                var format_copiaparavisor_0 = new ol.format.GeoJSON();
-                var features_copiaparavisor_0 = format_copiaparavisor_0.readFeatures(json_copiaparavisor_0, 
-                    {dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857'});
-                
+                // 3. Verificación de seguridad de datos vectoriales
                 var jsonSource_copiaparavisor_0 = new ol.source.Vector();
-                jsonSource_copiaparavisor_0.addFeatures(features_copiaparavisor_0);
-
                 var lyr_copiaparavisor_0 = new ol.layer.Vector({
-                    opacity: 1,
                     source: jsonSource_copiaparavisor_0,
                     style: customCelesteStyle,
                     title: 'Predios'
                 });
 
-                // 4. Coordenadas en Tiempo Real
+                if (typeof json_copiaparavisor_0 !== 'undefined') {
+                    var format_copiaparavisor_0 = new ol.format.GeoJSON();
+                    var features_copiaparavisor_0 = format_copiaparavisor_0.readFeatures(json_copiaparavisor_0, 
+                        {dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857'});
+                    jsonSource_copiaparavisor_0.addFeatures(features_copiaparavisor_0);
+                } else {
+                    console.warn("La variable json_copiaparavisor_0 no está disponible o la ruta del archivo es incorrecta.");
+                }
+
+                // 4. Coordenadas en tiempo real
                 var mousePositionControl = new ol.control.MousePosition({
                     coordinateFormat: function(coord) {
                         return ol.coordinate.format(coord, '{y}   {x}', 6);
                     },
                     projection: 'EPSG:4326',
                     target: document.getElementById('mouse-position'),
-                    undefinedHTML: 'Sin coordenadas'
+                    undefinedHTML: 'Mueva el cursor sobre el mapa'
                 });
 
                 // 5. Configurar Overlay Popup
@@ -228,31 +228,33 @@
                     return false;
                 };
 
-                // 6. Construir el Mapa
+                // 6. Construir Mapa (Vista inicial centrada por defecto si falla la capa)
                 var map = new ol.Map({
                     target: 'map',
                     controls: ol.control.defaults().extend([mousePositionControl]),
                     layers: [lyr_osm, lyr_google_sat, lyr_copiaparavisor_0],
                     overlays: [overlay],
                     view: new ol.View({
-                        center: [0, 0],
-                        zoom: 2
+                        center: ol.proj.fromLonLat([-72.07, -39.32]),
+                        zoom: 12
                     })
                 });
 
-                // Centrar automáticamente en tus predios
-                var extent = jsonSource_copiaparavisor_0.getExtent();
-                if (!ol.extent.isEmpty(extent)) {
-                    map.getView().fit(extent, { padding: [50, 50, 50, 50] });
+                // Centrar automáticamente en tus vectores si existen
+                if (jsonSource_copiaparavisor_0.getFeatures().length > 0) {
+                    var extent = jsonSource_copiaparavisor_0.getExtent();
+                    if (!ol.extent.isEmpty(extent)) {
+                        map.getView().fit(extent, { padding: [50, 50, 50, 50] });
+                    }
                 }
 
-                // Selector de capas (OpenStreetMap / Google Satélite)
+                // Control de leyenda y mapas base
                 var layerSwitcher = new ol.control.LayerSwitcher({
                     tipLabel: 'Leyenda'
                 });
                 map.addControl(layerSwitcher);
 
-                // Función auxiliar para leer ROL / Rol / rol
+                // Función auxiliar para leer ROL
                 function getRolValue(feature) {
                     var props = feature.getProperties();
                     for (var key in props) {
@@ -263,7 +265,7 @@
                     return 'N/A';
                 }
 
-                // Función para desplegar Popup
+                // Función Popup
                 function showFeaturePopup(feature) {
                     var featExtent = feature.getGeometry().getExtent();
                     var center = ol.extent.getCenter(featExtent);
@@ -279,7 +281,6 @@
                     overlay.setPosition(center);
                 }
 
-                // Clic sobre una propiedad
                 map.on('singleclick', function(evt) {
                     var featureFound = false;
                     map.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
@@ -296,7 +297,6 @@
                 // 7. Buscador por ROL
                 var searchInput = document.getElementById('rol-search-input');
                 var resultsList = document.getElementById('rol-search-results');
-                var features = jsonSource_copiaparavisor_0.getFeatures();
 
                 searchInput.addEventListener('input', function() {
                     var query = searchInput.value.trim().toLowerCase();
@@ -307,6 +307,7 @@
                         return;
                     }
 
+                    var features = jsonSource_copiaparavisor_0.getFeatures();
                     var matches = features.filter(function(feature) {
                         return getRolValue(feature).toLowerCase().includes(query);
                     });
@@ -340,7 +341,7 @@
                         resultsList.style.display = 'none';
                     }
                 });
-            };
+            });
         </script>
     </body>
 </html>
