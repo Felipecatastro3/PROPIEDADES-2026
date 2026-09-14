@@ -6,11 +6,13 @@
         <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-capable" content="yes">
+        
         <link rel="stylesheet" href="./resources/ol.css">
         <link rel="stylesheet" href="resources/fontawesome-all.min.css">
         <link href="resources/photon-geocoder-autocomplete.min.css" rel="stylesheet">
         <link rel="stylesheet" href="./resources/ol-layerswitcher.css">
         <link rel="stylesheet" href="./resources/qgis2web.css">
+        
         <style>
         html, body, #map {
             width: 100%;
@@ -40,7 +42,7 @@
             padding: 2px !important;
         }
 
-        /* Widget de Búsqueda por ROL */
+        /* Widget del Buscador */
         #rol-search-container {
             position: absolute;
             top: 10px;
@@ -83,7 +85,7 @@
             color: #0078d7;
         }
 
-        /* Coordenadas en Tiempo Real */
+        /* Coordenadas dinámicas */
         .custom-mouse-position {
             position: absolute;
             bottom: 10px;
@@ -99,7 +101,7 @@
             box-shadow: 0 1px 4px rgba(0,0,0,0.2);
         }
 
-        /* Pop-up Personalizado Autónomo */
+        /* Pop-up flotante */
         .custom-ol-popup {
             position: absolute;
             background-color: white;
@@ -147,16 +149,16 @@
     </head>
     <body>
         <div id="map">
-            <!-- Widget de Búsqueda -->
+            <!-- Widget de búsqueda -->
             <div id="rol-search-container">
-                <input type="text" id="rol-search-input" placeholder="Buscar ROL (Presione Enter)..." autocomplete="off">
+                <input type="text" id="rol-search-input" placeholder="Buscar ROL y presionar Enter..." autocomplete="off">
                 <ul id="rol-search-results"></ul>
             </div>
 
-            <!-- Coordenadas del cursor -->
+            <!-- Coordenadas del mouse -->
             <div id="mouse-position" class="custom-mouse-position"></div>
 
-            <!-- Pop-up dedicado -->
+            <!-- Ventana emergente (Popup) -->
             <div id="custom-popup" class="custom-ol-popup">
                 <span id="custom-popup-closer" class="custom-popup-closer">✖</span>
                 <div id="custom-popup-content"></div>
@@ -176,21 +178,32 @@
         <script src="./resources/qgis2web.js"></script>
 
         <script type="text/javascript">
-            // Forzar estilo sin relleno (solo bordes azules)
-            if (typeof lyr_copiaparavisor_0 !== 'undefined') {
-                lyr_copiaparavisor_0.setStyle(new ol.style.Style({
-                    fill: null,
-                    stroke: new ol.style.Stroke({
-                        color: '#2b8cbe',
-                        width: 2
-                    })
-                }));
-            }
-
             window.addEventListener('load', function () {
                 if (typeof map === 'undefined') return;
 
-                // 1. Configurar Overlay Pop-up Autónomo
+                // 1. Quitar relleno y dejar únicamente el contorno azul
+                if (typeof lyr_copiaparavisor_0 !== 'undefined') {
+                    lyr_copiaparavisor_0.setStyle(new ol.style.Style({
+                        fill: null,
+                        stroke: new ol.style.Stroke({
+                            color: '#2b8cbe',
+                            width: 2
+                        })
+                    }));
+                }
+
+                // 2. Control de Coordenadas del cursor
+                var mousePositionControl = new ol.control.MousePosition({
+                    coordinateFormat: function(coord) {
+                        return ol.coordinate.format(coord, '{y}   {x}', 6);
+                    },
+                    projection: 'EPSG:4326',
+                    target: document.getElementById('mouse-position'),
+                    undefinedHTML: 'Mueva el cursor'
+                });
+                map.addControl(mousePositionControl);
+
+                // 3. Crear Overlay independiente para el Pop-up
                 var popupContainer = document.getElementById('custom-popup');
                 var popupContent = document.getElementById('custom-popup-content');
                 var popupCloser = document.getElementById('custom-popup-closer');
@@ -207,36 +220,28 @@
                     return false;
                 };
 
-                // 2. Coordenadas dinámicas con el cursor
-                var mousePositionControl = new ol.control.MousePosition({
-                    coordinateFormat: function(coord) {
-                        return ol.coordinate.format(coord, '{y}   {x}', 6);
-                    },
-                    projection: 'EPSG:4326',
-                    target: document.getElementById('mouse-position'),
-                    undefinedHTML: 'Mueva el cursor'
-                });
-                map.addControl(mousePositionControl);
-
-                // 3. Obtener valor del campo ROL
-                function getRolValue(feature) {
+                // 4. Lógica para extraer la propiedad ROL
+                function getRolFromFeature(feature) {
                     var props = feature.getProperties();
                     for (var key in props) {
                         if (key.toLowerCase() === 'rol') {
-                            return props[key] ? String(props[key]) : 'N/A';
+                            return props[key] ? String(props[key]) : '';
                         }
                     }
-                    return 'N/A';
+                    return '';
                 }
 
-                // 4. Función para desplegar Popup con ROL y Coordenadas
+                // 5. Desplegar emergente
                 function showCustomPopup(feature) {
-                    var extent = feature.getGeometry().getExtent();
+                    var geom = feature.getGeometry();
+                    if (!geom) return;
+
+                    var extent = geom.getExtent();
                     var center = ol.extent.getCenter(extent);
                     var lonLat = ol.proj.toLonLat(center);
                     var lat = lonLat[1].toFixed(6);
                     var lon = lonLat[0].toFixed(6);
-                    var rol = getRolValue(feature);
+                    var rol = getRolFromFeature(feature) || 'N/A';
 
                     popupContent.innerHTML = '<strong style="color:#0078d7; font-size:14px;">ROL: ' + rol + '</strong><br>' +
                                              '<span style="font-size:12px; color:#444;">Coordenadas:</span><br>' +
@@ -245,7 +250,7 @@
                     customOverlay.setPosition(center);
                 }
 
-                // Clic manual directo sobre un polígono
+                // Clic manual directo en mapa
                 map.on('singleclick', function(evt) {
                     var found = false;
                     map.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
@@ -259,37 +264,35 @@
                     }
                 });
 
-                // 5. Lógica de Búsqueda y Zoom por ROL
-                var searchInput = document.getElementById('rol-search-input');
-                var resultsList = document.getElementById('rol-search-results');
+                // 6. Cargar entidades directamente del GeoJSON para la búsqueda
+                if (typeof json_copiaparavisor_0 !== 'undefined') {
+                    var format = new ol.format.GeoJSON();
+                    var parsedFeatures = format.readFeatures(json_copiaparavisor_0, {
+                        dataProjection: 'EPSG:4326',
+                        featureProjection: 'EPSG:3857'
+                    });
 
-                function executeSearchAndZoom(feature, rolVal) {
-                    searchInput.value = rolVal;
-                    resultsList.style.display = 'none';
+                    var searchInput = document.getElementById('rol-search-input');
+                    var resultsList = document.getElementById('rol-search-results');
 
-                    // Obtener la geometría y ajustar el Zoom
-                    var geometry = feature.getGeometry();
-                    if (geometry) {
-                        var featureExtent = geometry.getExtent();
+                    function executeSearchAndZoom(feature, rolVal) {
+                        searchInput.value = rolVal;
+                        resultsList.style.display = 'none';
+
+                        var extent = feature.getGeometry().getExtent();
                         
-                        // Zoom inmediato a la propiedad
-                        map.getView().fit(featureExtent, { 
-                            duration: 300, 
-                            maxZoom: 18, 
-                            padding: [100, 100, 100, 100] 
+                        // Centrar mapa de forma instantánea
+                        map.getView().fit(extent, {
+                            duration: 300,
+                            maxZoom: 18,
+                            padding: [80, 80, 80, 80]
                         });
 
-                        // Mostrar popup en las coordenadas del centroide
                         showCustomPopup(feature);
                     }
-                }
 
-                // Obtener entidades de la capa vectorial
-                if (typeof jsonSource_copiaparavisor_0 !== 'undefined') {
-                    
-                    // Sugerencias dinámicas
+                    // Sugerencias en vivo
                     searchInput.addEventListener('input', function() {
-                        var features = jsonSource_copiaparavisor_0.getFeatures();
                         var query = searchInput.value.trim().toLowerCase();
                         resultsList.innerHTML = '';
 
@@ -298,14 +301,15 @@
                             return;
                         }
 
-                        var matches = features.filter(function(feature) {
-                            return getRolValue(feature).toLowerCase().includes(query);
+                        var matches = parsedFeatures.filter(function(feature) {
+                            var rol = getRolFromFeature(feature).toLowerCase();
+                            return rol.includes(query);
                         });
 
                         if (matches.length > 0) {
                             resultsList.style.display = 'block';
                             matches.slice(0, 10).forEach(function(feature) {
-                                var rolVal = getRolValue(feature);
+                                var rolVal = getRolFromFeature(feature);
                                 var li = document.createElement('li');
                                 li.textContent = 'ROL: ' + rolVal;
                                 li.addEventListener('click', function() {
@@ -322,30 +326,28 @@
                         }
                     });
 
-                    // Evento al presionar la tecla ENTER
+                    // Tecla ENTER
                     searchInput.addEventListener('keydown', function(e) {
                         if (e.key === 'Enter') {
-                            var features = jsonSource_copiaparavisor_0.getFeatures();
                             var query = searchInput.value.trim().toLowerCase();
                             if (query.length === 0) return;
 
-                            var match = features.find(function(feature) {
-                                return getRolValue(feature).toLowerCase() === query;
+                            var match = parsedFeatures.find(function(feature) {
+                                return getRolFromFeature(feature).toLowerCase() === query;
                             });
 
                             if (!match) {
-                                match = features.find(function(feature) {
-                                    return getRolValue(feature).toLowerCase().includes(query);
+                                match = parsedFeatures.find(function(feature) {
+                                    return getRolFromFeature(feature).toLowerCase().includes(query);
                                 });
                             }
 
                             if (match) {
-                                executeSearchAndZoom(match, getRolValue(match));
+                                executeSearchAndZoom(match, getRolFromFeature(match));
                             }
                         }
                     });
 
-                    // Ocultar la lista al hacer clic fuera
                     document.addEventListener('click', function(e) {
                         if (!document.getElementById('rol-search-container').contains(e.target)) {
                             resultsList.style.display = 'none';
