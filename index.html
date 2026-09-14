@@ -122,7 +122,7 @@
             font-weight: 600;
         }
 
-        /* Capas Base y Simbología */
+        /* Opciones Mapa Base y Simbología */
         .base-layer-options {
             display: flex;
             flex-direction: column;
@@ -154,7 +154,7 @@
             border-radius: 3px;
         }
 
-        /* Coordenadas en tiempo real */
+        /* Coordenadas en tiempo real encuadradas */
         .mouse-position-box {
             background: #ffffff;
             padding: 8px;
@@ -199,8 +199,8 @@
             border: 1px solid #e4e7ed;
             bottom: 12px;
             left: -50px;
-            min-width: 200px;
-            z-index: 2000;
+            min-width: 190px;
+            z-index: 2500;
         }
         .custom-ol-popup:after, .custom-ol-popup:before {
             top: 100%;
@@ -313,7 +313,7 @@
                     map.updateSize();
                 }, 100);
 
-                // 1. Control de Mapas Base (OSM / Google Satélite)
+                // 1. Selector de Capas Base (OSM vs Google Satélite)
                 if (typeof lyr_osm !== 'undefined' && typeof lyr_google_sat !== 'undefined') {
                     lyr_osm.setVisible(true);
                     lyr_google_sat.setVisible(false);
@@ -338,37 +338,26 @@
                     });
                 }
 
-                // 2. CREACIÓN DE FUENTE Y CAPA VECTORIAL INDEPENDIENTE (Asegura clic y zoom perfecto)
-                var vectorSource = new ol.source.Vector();
-                var customVectorLayer = new ol.layer.Vector({
-                    source: vectorSource,
-                    renderMode: 'image',
-                    style: new ol.style.Style({
+                // 2. Usar la capa nativa y aplicarle un estilo transparente interactivo
+                var targetLayer = null;
+                if (typeof lyr_copiaparavisor_0 !== 'undefined') {
+                    targetLayer = lyr_copiaparavisor_0;
+                } else if (typeof layersList !== 'undefined' && layersList.length > 2) {
+                    targetLayer = layersList[2];
+                }
+
+                if (targetLayer) {
+                    targetLayer.setVisible(true);
+                    targetLayer.setStyle(new ol.style.Style({
                         fill: new ol.style.Fill({
-                            color: 'rgba(135, 206, 250, 0.05)' // Relleno imperceptible pero interactivo
+                            color: 'rgba(135, 206, 250, 0.25)' // Celeste sutil (permite hacer clic en todo el polígono)
                         }),
                         stroke: new ol.style.Stroke({
                             color: '#2b8cbe',
                             width: 2
                         })
-                    })
-                });
-
-                // Cargar datos GeoJSON a la nueva capa
-                if (typeof json_copiaparavisor_0 !== 'undefined') {
-                    var format = new ol.format.GeoJSON();
-                    var features = format.readFeatures(json_copiaparavisor_0, {
-                        dataProjection: 'EPSG:4326',
-                        featureProjection: 'EPSG:3857'
-                    });
-                    vectorSource.addFeatures(features);
+                    }));
                 }
-
-                // Ocultar capa original de QGIS y agregar la capa nueva interactiva
-                if (typeof lyr_copiaparavisor_0 !== 'undefined') {
-                    lyr_copiaparavisor_0.setVisible(false);
-                }
-                map.addLayer(customVectorLayer);
 
                 // 3. Coordenadas encuadradas
                 var mousePositionControl = new ol.control.MousePosition({
@@ -398,6 +387,7 @@
                     return false;
                 };
 
+                // Función extractora de ROL
                 function getRolFromFeature(feature) {
                     var props = feature.getProperties();
                     for (var key in props) {
@@ -408,13 +398,14 @@
                     return '';
                 }
 
-                // 5. Desplegar Emergente en las coordenadas correctas
+                // 5. Función que calcula el centroide real y despliega el Pop-up
                 function showCustomPopup(feature, clickCoord) {
                     var geom = feature.getGeometry();
                     if (!geom) return;
 
                     var displayCoord = clickCoord;
                     if (!displayCoord) {
+                        // Calcula el centroide geométrico exacto del polígono
                         var extent = geom.getExtent();
                         displayCoord = ol.extent.getCenter(extent);
                     }
@@ -431,11 +422,11 @@
                     customOverlay.setPosition(displayCoord);
                 }
 
-                // Evento Clic en el Mapa (Ahora funciona en todo el interior)
+                // Clic directo sobre el polígono
                 map.on('singleclick', function(evt) {
                     var found = false;
-                    map.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
-                        if (layer === customVectorLayer && !found) {
+                    map.forEachFeatureAtPixel(evt.pixel, function(feature) {
+                        if (!found && feature) {
                             showCustomPopup(feature, evt.coordinate);
                             found = true;
                         }
@@ -445,91 +436,98 @@
                     }
                 });
 
-                // 6. Buscador por ROL con Zoom y Centrado Garantizado
-                var searchInput = document.getElementById('rol-search-input');
-                var resultsList = document.getElementById('rol-search-results');
-
-                function executeSearchAndZoom(feature, rolVal) {
-                    searchInput.value = rolVal;
-                    resultsList.style.display = 'none';
-
-                    var geom = feature.getGeometry();
-                    if (geom) {
-                        var extent = geom.getExtent();
-                        
-                        // Centra exactamente dejando libre la franja de 320px del menú
-                        map.getView().fit(extent, {
-                            duration: 350,
-                            maxZoom: 18,
-                            padding: [60, 360, 60, 60]
-                        });
-
-                        showCustomPopup(feature, null);
-                    }
-                }
-
-                searchInput.addEventListener('input', function() {
-                    var query = searchInput.value.trim().toLowerCase();
-                    resultsList.innerHTML = '';
-
-                    if (query.length === 0) {
-                        resultsList.style.display = 'none';
-                        return;
-                    }
-
-                    var allFeatures = vectorSource.getFeatures();
-                    var matches = allFeatures.filter(function(feature) {
-                        var rol = getRolFromFeature(feature).toLowerCase();
-                        return rol.includes(query);
+                // 6. Búsqueda por ROL con Zoom Centrado al Predio
+                if (typeof json_copiaparavisor_0 !== 'undefined') {
+                    var format = new ol.format.GeoJSON();
+                    var parsedFeatures = format.readFeatures(json_copiaparavisor_0, {
+                        dataProjection: 'EPSG:4326',
+                        featureProjection: 'EPSG:3857'
                     });
 
-                    if (matches.length > 0) {
-                        resultsList.style.display = 'block';
-                        matches.slice(0, 10).forEach(function(feature) {
-                            var rolVal = getRolFromFeature(feature);
-                            var li = document.createElement('li');
-                            li.textContent = 'ROL: ' + rolVal;
-                            li.addEventListener('click', function() {
-                                executeSearchAndZoom(feature, rolVal);
-                            });
-                            resultsList.appendChild(li);
-                        });
-                    } else {
-                        resultsList.style.display = 'block';
-                        var li = document.createElement('li');
-                        li.textContent = 'Sin resultados';
-                        li.style.color = '#909399';
-                        resultsList.appendChild(li);
-                    }
-                });
+                    var searchInput = document.getElementById('rol-search-input');
+                    var resultsList = document.getElementById('rol-search-results');
 
-                searchInput.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter') {
-                        var query = searchInput.value.trim().toLowerCase();
-                        if (query.length === 0) return;
-
-                        var allFeatures = vectorSource.getFeatures();
-                        var match = allFeatures.find(function(feature) {
-                            return getRolFromFeature(feature).toLowerCase() === query;
-                        });
-
-                        if (!match) {
-                            match = allFeatures.find(function(feature) {
-                                return getRolFromFeature(feature).toLowerCase().includes(query);
-                            });
-                        }
-
-                        if (match) {
-                            executeSearchAndZoom(match, getRolFromFeature(match));
-                        }
-                    }
-                });
-
-                document.addEventListener('click', function(e) {
-                    if (!document.getElementById('sidebar').contains(e.target)) {
+                    function executeSearchAndZoom(feature, rolVal) {
+                        searchInput.value = rolVal;
                         resultsList.style.display = 'none';
+
+                        var geom = feature.getGeometry();
+                        if (geom) {
+                            var extent = geom.getExtent();
+                            
+                            // Zoom centrado considerando los 320px del menú derecho
+                            map.getView().fit(extent, {
+                                duration: 300,
+                                maxZoom: 18,
+                                padding: [80, 360, 80, 80]
+                            });
+
+                            // Abrir pop-up automáticamente en el centroide del predio
+                            showCustomPopup(feature, null);
+                        }
                     }
-                });
+
+                    searchInput.addEventListener('input', function() {
+                        var query = searchInput.value.trim().toLowerCase();
+                        resultsList.innerHTML = '';
+
+                        if (query.length === 0) {
+                            resultsList.style.display = 'none';
+                            return;
+                        }
+
+                        var matches = parsedFeatures.filter(function(feature) {
+                            var rol = getRolFromFeature(feature).toLowerCase();
+                            return rol.includes(query);
+                        });
+
+                        if (matches.length > 0) {
+                            resultsList.style.display = 'block';
+                            matches.slice(0, 10).forEach(function(feature) {
+                                var rolVal = getRolFromFeature(feature);
+                                var li = document.createElement('li');
+                                li.textContent = 'ROL: ' + rolVal;
+                                li.addEventListener('click', function() {
+                                    executeSearchAndZoom(feature, rolVal);
+                                });
+                                resultsList.appendChild(li);
+                            });
+                        } else {
+                            resultsList.style.display = 'block';
+                            var li = document.createElement('li');
+                            li.textContent = 'Sin resultados';
+                            li.style.color = '#909399';
+                            resultsList.appendChild(li);
+                        }
+                    });
+
+                    searchInput.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter') {
+                            var query = searchInput.value.trim().toLowerCase();
+                            if (query.length === 0) return;
+
+                            var match = parsedFeatures.find(function(feature) {
+                                return getRolFromFeature(feature).toLowerCase() === query;
+                            });
+
+                            if (!match) {
+                                match = parsedFeatures.find(function(feature) {
+                                    return getRolFromFeature(feature).toLowerCase().includes(query);
+                                });
+                            }
+
+                            if (match) {
+                                executeSearchAndZoom(match, getRolFromFeature(match));
+                            }
+                        }
+                    });
+
+                    document.addEventListener('click', function(e) {
+                        if (!document.getElementById('sidebar').contains(e.target)) {
+                            resultsList.style.display = 'none';
+                        }
+                    });
+                }
             });
         </script>
     </body>
