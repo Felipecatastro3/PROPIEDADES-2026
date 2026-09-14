@@ -154,7 +154,7 @@
             border-radius: 3px;
         }
 
-        /* Coordenadas en tiempo real perfectamente encuadradas */
+        /* Coordenadas en tiempo real encuadradas */
         .mouse-position-box {
             background: #ffffff;
             padding: 8px;
@@ -303,7 +303,7 @@
                     </div>
                 </div>
 
-                <!-- 4. Coordenadas del Cursor (Cuadro contenedor propio) -->
+                <!-- 4. Coordenadas del Cursor -->
                 <div class="menu-section">
                     <div class="section-title">Coordenadas del Cursor</div>
                     <div class="mouse-position-box">
@@ -354,10 +354,12 @@
                     });
                 }
 
-                // 2. Estilo de contorno azul fino sin relleno
+                // 2. Estilo: Relleno 100% transparente (habilita la captura del clic en el interior del polígono)
                 if (typeof lyr_copiaparavisor_0 !== 'undefined') {
                     lyr_copiaparavisor_0.setStyle(new ol.style.Style({
-                        fill: null,
+                        fill: new ol.style.Fill({
+                            color: 'rgba(0, 0, 0, 0)'
+                        }),
                         stroke: new ol.style.Stroke({
                             color: '#2b8cbe',
                             width: 2
@@ -426,7 +428,7 @@
                     customOverlay.setPosition(displayCoord);
                 }
 
-                // Clic directo en un polígono para mostrar la info
+                // Clic en cualquier área dentro o fuera del borde del polígono
                 map.on('singleclick', function(evt) {
                     var found = false;
                     map.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
@@ -457,7 +459,6 @@
 
                         var extent = feature.getGeometry().getExtent();
                         
-                        // Fit ajustado (maxZoom 20 para enfocar solo el predio)
                         map.getView().fit(extent, {
                             duration: 300,
                             maxZoom: 20,
