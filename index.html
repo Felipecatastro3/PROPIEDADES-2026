@@ -185,7 +185,7 @@
                     });
                 });
 
-                // 4. Lógica de búsqueda por ROL
+                // 4. Lógica de búsqueda por ROL (Animación fluida acelerada)
                 var searchInput = document.getElementById('rol-search-input');
                 var resultsList = document.getElementById('rol-search-results');
                 
@@ -215,7 +215,9 @@
                                     searchInput.value = rolVal;
                                     resultsList.style.display = 'none';
                                     var featureExtent = feature.getGeometry().getExtent();
-                                    map.getView().fit(featureExtent, { duration: 1000, maxZoom: 19, padding: [80, 80, 80, 80] });
+                                    
+                                    // Zoom rápido a 250ms en lugar de 1000ms
+                                    map.getView().fit(featureExtent, { duration: 250, maxZoom: 19, padding: [80, 80, 80, 80] });
                                     showCustomPopup(feature);
                                 });
                                 resultsList.appendChild(li);
