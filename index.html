@@ -154,7 +154,7 @@
             border-radius: 3px;
         }
 
-        /* Coordenadas en tiempo real */
+        /* Coordenadas del cursor */
         .mouse-position-box {
             background: #ffffff;
             padding: 8px;
@@ -189,7 +189,7 @@
             display: none !important;
         }
 
-        /* Pop-up flotante con Recuadro Estilizado */
+        /* Pop-up flotante estilizado */
         .custom-ol-popup {
             position: absolute;
             background-color: #ffffff;
@@ -309,9 +309,7 @@
             window.addEventListener('load', function () {
                 if (typeof map === 'undefined') return;
 
-                setTimeout(function() {
-                    map.updateSize();
-                }, 100);
+                map.updateSize();
 
                 // 1. Selector de Capas Base
                 if (typeof lyr_osm !== 'undefined' && typeof lyr_google_sat !== 'undefined') {
@@ -338,7 +336,7 @@
                     });
                 }
 
-                // 2. Estilo: Sin relleno visible, sólo borde azul (habilita la captura del clic en el interior)
+                // 2. Estilo sin relleno visible + detección de clic interior
                 var targetLayer = null;
                 if (typeof lyr_copiaparavisor_0 !== 'undefined') {
                     targetLayer = lyr_copiaparavisor_0;
@@ -397,7 +395,7 @@
                     return '';
                 }
 
-                // 5. Pop-up desplegado en el centroide exacto
+                // 5. Pop-up centrado
                 function showCustomPopup(feature, clickCoord) {
                     var geom = feature.getGeometry();
                     if (!geom) return;
@@ -420,7 +418,7 @@
                     customOverlay.setPosition(displayCoord);
                 }
 
-                // Clic directo en cualquier parte del polígono
+                // Clic en el mapa
                 map.on('singleclick', function(evt) {
                     var found = false;
                     map.forEachFeatureAtPixel(evt.pixel, function(feature) {
@@ -434,7 +432,7 @@
                     }
                 });
 
-                // 6. BÚSQUEDA Y ZOOM DIRECTO AL CENTROIDE DEL PREDIO
+                // 6. EXECUTE SEARCH AND ZOOM FIX
                 if (typeof json_copiaparavisor_0 !== 'undefined') {
                     var format = new ol.format.GeoJSON();
                     var parsedFeatures = format.readFeatures(json_copiaparavisor_0, {
@@ -451,19 +449,16 @@
 
                         var geom = feature.getGeometry();
                         if (geom) {
+                            map.updateSize(); // Sincroniza el canvas antes de encuadrar
+
                             var extent = geom.getExtent();
                             var center = ol.extent.getCenter(extent);
-                            var resolution = map.getView().getResolution();
 
-                            // Ajuste exacto de desplazamiento para colocar el predio en el centro visual (compensando el sidebar de 320px)
-                            var offsetX = 160 * resolution; 
-                            var targetCenter = [center[0] + offsetX, center[1]];
-
-                            // Animación directa al centro del predio con Zoom 18
-                            map.getView().animate({
-                                center: targetCenter,
-                                zoom: 18,
-                                duration: 400
+                            // Ajuste nativo de OpenLayers para centrado perfecto con sidebar
+                            map.getView().fit(extent, {
+                                duration: 350,
+                                maxZoom: 18,
+                                padding: [50, 370, 50, 50] // Colchón de 370px a la derecha para centrar en el área libre
                             });
 
                             showCustomPopup(feature, center);
