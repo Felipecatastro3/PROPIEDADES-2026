@@ -45,53 +45,6 @@
             z-index: 1000;
             display: flex;
             flex-direction: column;
-            box-sizing: border-box;<!doctype html>
-<html lang="es">
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
-        <meta name="mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-capable" content="yes">
-        
-        <link rel="stylesheet" href="./resources/ol.css">
-        <link rel="stylesheet" href="resources/fontawesome-all.min.css">
-        <link href="resources/photon-geocoder-autocomplete.min.css" rel="stylesheet">
-        <link rel="stylesheet" href="./resources/ol-layerswitcher.css">
-        <link rel="stylesheet" href="./resources/qgis2web.css">
-        
-        <style>
-        html, body {
-            width: 100%;
-            height: 100%;
-            padding: 0;
-            margin: 0;
-            background-color: #ffffff;
-            overflow: hidden;
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        }
-
-        #app-container {
-            display: flex;
-            width: 100%;
-            height: 100%;
-            position: relative;
-        }
-
-        #map {
-            flex: 1;
-            height: 100%;
-        }
-
-        /* Panel Lateral Derecho */
-        #sidebar {
-            width: 320px;
-            height: 100%;
-            background: #ffffff;
-            box-shadow: -2px 0 12px rgba(0,0,0,0.15);
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
             box-sizing: border-box;
             padding: 20px 16px;
             gap: 16px;
@@ -236,17 +189,18 @@
             display: none !important;
         }
 
-        /* Pop-up flotante */
+        /* Pop-up flotante con Recuadro Estilizado */
         .custom-ol-popup {
             position: absolute;
             background-color: #ffffff;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-            padding: 14px 16px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+            padding: 14px 16px 12px 16px;
             border-radius: 8px;
-            border: 1px solid #e4e7ed;
-            bottom: 12px;
+            border: 1px solid #dcdfe6;
+            border-top: 4px solid #2b8cbe; /* Borde superior azul destacado */
+            bottom: 15px;
             left: -50px;
-            min-width: 190px;
+            min-width: 210px;
             z-index: 2500;
         }
         .custom-ol-popup:after, .custom-ol-popup:before {
@@ -265,23 +219,23 @@
             margin-left: -10px;
         }
         .custom-ol-popup:before {
-            border-top-color: #e4e7ed;
+            border-top-color: #dcdfe6;
             border-width: 11px;
             left: 48px;
             margin-left: -11px;
         }
-        .custom-popup-closer {
-            text-decoration: none;
+        /* Ícono de Ubicación (Pin) */
+        .custom-popup-pin {
             position: absolute;
-            top: 6px;
+            top: 8px;
             right: 10px;
-            color: #909399;
-            font-size: 12px;
-            font-weight: bold;
+            font-size: 16px;
             cursor: pointer;
+            user-select: none;
+            transition: transform 0.2s;
         }
-        .custom-popup-closer:hover {
-            color: #e74c3c;
+        .custom-popup-pin:hover {
+            transform: scale(1.2);
         }
         </style>
         <title>Visor WebGIS</title>
@@ -289,8 +243,9 @@
     <body>
         <div id="app-container">
             <div id="map">
+                <!-- Recuadro del Popup -->
                 <div id="custom-popup" class="custom-ol-popup">
-                    <span id="custom-popup-closer" class="custom-popup-closer">✖</span>
+                    <span id="custom-popup-pin" class="custom-popup-pin" title="Coordenadas prediales">📍</span>
                     <div id="custom-popup-content"></div>
                 </div>
             </div>
@@ -385,7 +340,7 @@
                     });
                 }
 
-                // 2. SIN RELLENO VISIBLE (SÓLO BORDE), PERO REGISTRA EL CLIC EN TODO EL INTERIOR
+                // 2. Transparente sin relleno (0% visibilidad), habilita el clic en todo el polígono
                 var targetLayer = null;
                 if (typeof lyr_copiaparavisor_0 !== 'undefined') {
                     targetLayer = lyr_copiaparavisor_0;
@@ -397,10 +352,10 @@
                     targetLayer.setVisible(true);
                     targetLayer.setStyle(new ol.style.Style({
                         fill: new ol.style.Fill({
-                            color: 'rgba(0, 0, 0, 0)' // Relleno 100% transparente para ver el mapa base
+                            color: 'rgba(0, 0, 0, 0)'
                         }),
                         stroke: new ol.style.Stroke({
-                            color: '#2b8cbe', // Únicamente contorno azul
+                            color: '#2b8cbe',
                             width: 2
                         })
                     }));
@@ -420,7 +375,7 @@
                 // 4. Pop-up Overlay
                 var popupContainer = document.getElementById('custom-popup');
                 var popupContent = document.getElementById('custom-popup-content');
-                var popupCloser = document.getElementById('custom-popup-closer');
+                var popupPin = document.getElementById('custom-popup-pin');
 
                 var customOverlay = new ol.Overlay({
                     element: popupContainer,
@@ -429,7 +384,8 @@
                 });
                 map.addOverlay(customOverlay);
 
-                popupCloser.onclick = function() {
+                // Al pulsar sobre el Pin de Ubicación se cierra el globo flotante
+                popupPin.onclick = function() {
                     customOverlay.setPosition(undefined);
                     return false;
                 };
@@ -444,7 +400,7 @@
                     return '';
                 }
 
-                // 5. Pop-up centrado en las coordenadas geográficas
+                // 5. Contenido Estructurado dentro del Recuadro Pop-up
                 function showCustomPopup(feature, clickCoord) {
                     var geom = feature.getGeometry();
                     if (!geom) return;
@@ -460,14 +416,14 @@
                     var lon = lonLat[0].toFixed(6);
                     var rol = getRolFromFeature(feature) || 'N/A';
 
-                    popupContent.innerHTML = '<div style="font-weight:bold; color:#2b8cbe; font-size:14px; margin-bottom:4px;">ROL: ' + rol + '</div>' +
-                                             '<div style="font-size:11px; color:#909399; margin-bottom:2px;">Coordenadas Geográficas:</div>' +
-                                             '<code style="background:#f4f4f5; color:#303133; padding:3px 6px; border-radius:4px; font-size:12px; display:inline-block;">' + lat + '   ' + lon + '</code>';
+                    popupContent.innerHTML = '<div style="font-weight:700; color:#2b8cbe; font-size:14px; margin-bottom:6px; border-bottom:1px solid #f0f0f0; padding-bottom:4px;">ROL: ' + rol + '</div>' +
+                                             '<div style="font-size:11px; color:#606266; margin-bottom:3px;">Coordenadas Geográficas:</div>' +
+                                             '<div style="background:#f4f4f5; color:#303133; padding:4px 8px; border-radius:4px; font-size:12px; font-family:monospace; font-weight:600; border:1px solid #e4e7ed; text-align:center;">' + lat + '   ' + lon + '</div>';
                     
                     customOverlay.setPosition(displayCoord);
                 }
 
-                // Evento clic en el polígono
+                // Evento clic en cualquier parte del polígono
                 map.on('singleclick', function(evt) {
                     var found = false;
                     map.forEachFeatureAtPixel(evt.pixel, function(feature) {
@@ -500,7 +456,7 @@
                         if (geom) {
                             var extent = geom.getExtent();
                             
-                            // Ajuste exacto considerando los 320px del menú derecho
+                            // Ajuste considerando los 320px del menú lateral
                             map.getView().fit(extent, {
                                 duration: 300,
                                 maxZoom: 18,
