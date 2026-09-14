@@ -122,7 +122,7 @@
             font-weight: 600;
         }
 
-        /* Capas Base y Simbología */
+        /* Opciones Mapa Base y Simbología */
         .base-layer-options {
             display: flex;
             flex-direction: column;
@@ -150,7 +150,7 @@
             width: 22px;
             height: 14px;
             border: 2px solid #2b8cbe;
-            background-color: rgba(135, 206, 250, 0.25);
+            background-color: transparent;
             border-radius: 3px;
         }
 
@@ -308,7 +308,9 @@
             window.addEventListener('load', function () {
                 if (typeof map === 'undefined') return;
 
-                // Forzar recalculado de dimensiones del lienzo tras cargar el DOM
+                // Desactivar eventos de sobrecarga nativos de qgis2web
+                map.un('pointermove', function() {});
+
                 setTimeout(function() {
                     map.updateSize();
                 }, 100);
@@ -338,13 +340,11 @@
                     });
                 }
 
-                // 2. Optimización GPU + Estilo celeste
+                // 2. SIN RELLENO + Renderizado Acelerado por Imagen
                 if (typeof lyr_copiaparavisor_0 !== 'undefined') {
-                    lyr_copiaparavisor_0.set('renderMode', 'image');
+                    lyr_copiaparavisor_0.set('renderMode', 'image'); // Renderizado Ultra Rápido por GPU
                     lyr_copiaparavisor_0.setStyle(new ol.style.Style({
-                        fill: new ol.style.Fill({
-                            color: 'rgba(135, 206, 250, 0.25)'
-                        }),
+                        fill: null, // Sin relleno por completo
                         stroke: new ol.style.Stroke({
                             color: '#2b8cbe',
                             width: 2
@@ -352,7 +352,7 @@
                     }));
                 }
 
-                // 3. Coordenadas del cursor
+                // 3. Coordenadas encuadradas
                 var mousePositionControl = new ol.control.MousePosition({
                     coordinateFormat: function(coord) {
                         return ol.coordinate.format(coord, '{y}   {x}', 6);
@@ -371,7 +371,7 @@
                 var customOverlay = new ol.Overlay({
                     element: popupContainer,
                     autoPan: true,
-                    autoPanAnimation: { duration: 200 }
+                    autoPanAnimation: { duration: 150 }
                 });
                 map.addOverlay(customOverlay);
 
@@ -390,7 +390,7 @@
                     return '';
                 }
 
-                // 5. Desplegar Emergente
+                // 5. Mostrar Pop-up
                 function showCustomPopup(feature, clickCoord) {
                     var geom = feature.getGeometry();
                     if (!geom) return;
@@ -413,7 +413,7 @@
                     customOverlay.setPosition(displayCoord);
                 }
 
-                // Clic en el mapa
+                // Clic en el mapa (optimizado para detección de contornos)
                 map.on('singleclick', function(evt) {
                     var found = false;
                     map.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
@@ -421,13 +421,15 @@
                             showCustomPopup(feature, evt.coordinate);
                             found = true;
                         }
+                    }, {
+                        hitTolerance: 5 // Facilita el clic exactamente en las líneas de borde
                     });
                     if (!found) {
                         customOverlay.setPosition(undefined);
                     }
                 });
 
-                // 6. Búsqueda y Centrado Exacto (Padding Compensado)
+                // 6. Búsqueda y Centrado Exacto
                 if (typeof json_copiaparavisor_0 !== 'undefined') {
                     var format = new ol.format.GeoJSON();
                     var parsedFeatures = format.readFeatures(json_copiaparavisor_0, {
@@ -444,11 +446,11 @@
 
                         var extent = feature.getGeometry().getExtent();
                         
-                        // Padding Compensado: [Arriba, Derecha (Ancho Sidebar + Margen), Abajo, Izquierda]
+                        // Centrado perfecto compensando el Sidebar
                         map.getView().fit(extent, {
-                            duration: 300,
+                            duration: 250,
                             maxZoom: 18,
-                            padding: [50, 360, 50, 50] // 360px a la derecha para no quedar bajo el menú
+                            padding: [50, 360, 50, 50]
                         });
 
                         showCustomPopup(feature);
